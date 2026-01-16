@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 
-// Formatting Helpers
+// Money Formatter
 const formatMoney = (amount) => {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 };
@@ -31,7 +31,6 @@ export default function App() {
     return parts.length > 1 ? `${parts[0].substring(0, 4)}***@${parts[1]}` : email;
   };
 
-  // Filter Drops based on Search
   const filteredDrops = data?.drops?.filter(d => 
     d.name.toLowerCase().includes(search.toLowerCase()) || 
     d.store.toLowerCase().includes(search.toLowerCase())
@@ -42,7 +41,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-[#0a0a0a] text-white font-sans pb-10">
         
-        {/* Sticky Header with Glassmorphism */}
+        {/* Header */}
         <div className="sticky top-0 z-50 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-white/10 p-4">
           <div className="max-w-md mx-auto flex justify-between items-center">
             <h1 className="text-xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-600">
@@ -60,7 +59,7 @@ export default function App() {
 
         <div className="max-w-md mx-auto p-4">
             
-          {/* THE WHALE DASHBOARD */}
+          {/* Dashboard Stats */}
           <div className="grid grid-cols-2 gap-3 mb-6">
             <div className="bg-[#151515] p-4 rounded-2xl border border-white/5 shadow-xl">
                 <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Total Spend</p>
@@ -77,7 +76,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* SEARCH BAR */}
+          {/* Search */}
           <div className="relative mb-4">
             <input 
                 type="text" 
@@ -88,7 +87,7 @@ export default function App() {
             />
           </div>
 
-          {/* DROP LIST */}
+          {/* List */}
           <div className="space-y-4">
             {!loading && filteredDrops.length === 0 && (
                 <div className="text-center text-gray-600 text-xs py-10">No drops found.</div>
@@ -101,14 +100,12 @@ export default function App() {
                 className="group relative bg-[#151515] border border-white/5 rounded-2xl p-4 active:scale-[0.98] transition-all cursor-pointer hover:border-white/10"
               >
                 <div className="flex items-start">
-                  {/* Image */}
                   <div className="w-16 h-16 bg-gray-800 rounded-lg mr-4 flex-shrink-0 overflow-hidden border border-white/5 relative">
                     {drop.image ? (
                       <img src={drop.image} alt="Item" className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-xl grayscale opacity-50">📦</div>
                     )}
-                    {/* Qty Badge */}
                     <div className="absolute bottom-0 right-0 bg-black/60 backdrop-blur text-white text-[9px] px-1.5 py-0.5 rounded-tl-md font-bold">
                         x{drop.totalItems}
                     </div>
@@ -121,12 +118,13 @@ export default function App() {
                     </div>
                     <p className="text-[10px] text-gray-500 uppercase font-bold mt-1 tracking-wide">{drop.store}</p>
                     
-                    {/* Status Bar */}
                     <div className="flex items-center space-x-2 mt-3">
                         <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
                             <div className="h-full bg-emerald-500" style={{ width: `${(drop.confirmed / drop.totalOrders) * 100}%` }}></div>
                         </div>
-                        <span className="text-[10px] text-gray-400 font-mono">{drop.confirmed}/{drop.totalOrders}</span>
+                        <span className="text-[10px] text-gray-400 font-mono">
+                            {drop.confirmed} <span className="text-gray-600">/</span> {drop.totalOrders}
+                        </span>
                     </div>
                   </div>
                 </div>
@@ -171,29 +169,64 @@ export default function App() {
             </button>
         </div>
 
-        {/* RECEIPTS */}
+        {/* RECEIPTS LIST (UPDATED FOR CANCELLATION TRACKING) */}
         <div className="space-y-3">
-          {selectedDrop.breakdown.map((item, i) => (
-            <div key={i} className="bg-[#151515] border border-white/5 rounded-xl p-4 flex justify-between items-center">
-              
-              <div className="flex flex-col min-w-0 mr-4">
-                <span className="text-sm font-mono text-gray-300 truncate mb-1">{maskEmail(item.email)}</span>
-                <div className="flex items-center space-x-2">
-                    <span className="text-[10px] text-gray-500 bg-gray-800 px-1.5 rounded">Qty: {item.latestQty}</span>
-                    {item.canceled > 0 && <span className="text-[10px] text-red-500 font-bold">CANCELED</span>}
-                </div>
-              </div>
+          {selectedDrop.breakdown.map((item, i) => {
+             // Logic: Calculate how many confirmed
+             const confirmedCount = item.count - item.canceled;
 
-              <div className="text-right whitespace-nowrap">
-                <div className="font-bold text-white text-sm">
-                    {item.latestPrice > 0 ? formatMoney(item.latestPrice) : '-'}
+             return (
+              <div key={i} className="bg-[#151515] border border-white/5 rounded-xl p-4 flex justify-between items-center">
+                
+                {/* Left: Email & Badges */}
+                <div className="flex flex-col min-w-0 mr-4">
+                  <span className="text-sm font-mono text-gray-300 truncate mb-1">{maskEmail(item.email)}</span>
+                  <div className="flex items-center space-x-2">
+                      <span className="text-[10px] text-gray-500 bg-gray-800 px-1.5 rounded font-mono">
+                         Qty: {item.latestQty}
+                      </span>
+                      {item.latestPrice > 0 && (
+                          <span className="text-[10px] text-emerald-500 bg-emerald-900/20 px-1.5 rounded font-mono">
+                             {formatMoney(item.latestPrice)}
+                          </span>
+                      )}
+                  </div>
                 </div>
-                <div className="text-[10px] text-gray-500 mt-0.5">
-                    {new Date().toLocaleDateString()}
+
+                {/* Right: Stats Breakdown */}
+                <div className="text-right flex flex-col items-end">
+                  
+                  {/* Total Orders Header */}
+                  <div className="font-bold text-yellow-500 text-sm">
+                      {item.count} Order{item.count > 1 ? 's' : ''}
+                  </div>
+
+                  {/* Sub-line: Breakdown */}
+                  <div className="text-[10px] font-bold mt-1 flex space-x-1">
+                      {/* Confirmed Count */}
+                      {confirmedCount > 0 && (
+                          <span className="text-gray-500">
+                             {confirmedCount} Confirmed
+                          </span>
+                      )}
+
+                      {/* Dot separator if both exist */}
+                      {confirmedCount > 0 && item.canceled > 0 && (
+                          <span className="text-gray-700">•</span>
+                      )}
+
+                      {/* Canceled Count */}
+                      {item.canceled > 0 && (
+                          <span className="text-red-500">
+                             {item.canceled} Canceled
+                          </span>
+                      )}
+                  </div>
+
                 </div>
               </div>
-            </div>
-          ))}
+             );
+          })}
         </div>
       </div>
     </div>
