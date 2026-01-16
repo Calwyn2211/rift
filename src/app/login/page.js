@@ -29,7 +29,7 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 font-sans">
       <div className="w-full max-w-sm bg-[#151515] border border-white/10 p-8 rounded-2xl shadow-2xl">
-        <h1 className="text-2xl font-black italic text-center text-white mb-6 tracking-tighter">RIFT</h1>
+        <h1 className="text-xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-600">RIFT</h1>
         
         <form onSubmit={handleLogin} className="space-y-4">
           <div>

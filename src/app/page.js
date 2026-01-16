@@ -45,7 +45,7 @@ export default function App() {
         <div className="sticky top-0 z-50 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-white/10 p-4">
           <div className="max-w-md mx-auto flex justify-between items-center">
             <h1 className="text-xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-600">
-              RIFTBOUND
+              RIFT
             </h1>
             <button 
                 onClick={fetchData} 
