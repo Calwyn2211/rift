@@ -27,127 +27,185 @@ export async function GET() {
         const fetchOptions = { bodies: ['HEADER', 'TEXT', ''], markSeen: false }; 
         const messages = await connection.search(searchCriteria, fetchOptions);
 
-        let productGroups = {};
+        // --- PHASE 1: PROCESS ALL EMAILS INTO UNIQUE ORDERS ---
+        // Map Key: "StoreName-OrderNumber" (Ensures Order #1 from Topps != Order #1 from Amazon)
+        let orderMap = new Map();
 
         for (const item of messages) {
             const all = item.parts.find(p => p.which === '');
             const id = item.attributes.uid;
             const parsed = await simpleParser("Imap-Id: "+id+"\r\n" + all.body);
 
-            // 1. FILTER
+            // 1. FILTERING
             const subject = parsed.subject || "No Subject";
             const subLow = subject.toLowerCase();
             if (['shipped', 'delivered', 'buy order', 'invoice', 'return', 'entry'].some(w => subLow.includes(w))) continue;
-            if (!['confirmed', 'thank', '#'].some(w => subLow.includes(w))) continue;
+            if (!['confirmed', 'thank', '#', 'cancel', 'refund'].some(w => subLow.includes(w))) continue;
 
-            // 2. STORE NAME
+            // 2. IDENTIFY STORE
             const fromRaw = parsed.from?.text || "Unknown";
             let storeName = fromRaw.replace(/<.*>/, '').replace(/"/g, '').trim();
 
-            // 3. SCRAPE DATA
-            let productName = null;
-            let productImage = null;
-            let productPrice = 0; // Float
-            let productQty = 1;   // Int
-
-            const $ = cheerio.load(parsed.html || parsed.textAsHtml || "");
-
-            $('img').each((i, el) => {
-                if (productName) return;
-                const src = $(el).attr('src');
-                if (!src || src.match(/(facebook|twitter|instagram|logo|spacer|tracker|icon|social|brand)/i)) return;
-                if (!src.includes('cdn.shopify') && !src.includes('products')) return;
-
-                productImage = src;
-                const row = $(el).closest('tr');
-                if (row.length > 0) {
-                    const cells = row.find('td');
-                    let rawText = cells.length >= 2 ? cells.eq(1).text().trim() : row.text().trim();
-                    let rawPrice = cells.last().text().trim();
-
-                    // Quantity
-                    const qtyMatch = rawText.match(/(?:x|×|Qty:)\s*(\d+)/i);
-                    if (qtyMatch) {
-                        productQty = parseInt(qtyMatch[1]);
-                        rawText = rawText.replace(qtyMatch[0], '').trim();
-                    }
-
-                    // Title
-                    productName = rawText.replace(/\s+/g, ' ').trim();
-
-                    // Price
-                    if (rawPrice) {
-                        // Remove currency symbols and commas to get a float
-                        const cleanPrice = rawPrice.replace(/[^0-9.]/g, '');
-                        productPrice = parseFloat(cleanPrice) || 0;
-                    }
-                }
-            });
-
-            // Fallback
-            if (!productName) {
-                const text = parsed.text || "";
-                const match = text.match(/(\d+)x\s+(.*)/);
-                if (match) { productQty = parseInt(match[1]); productName = match[2]; } 
-                else { productName = `${storeName} Drop`; }
+            // 3. EXTRACT ORDER ID (CRITICAL)
+            // Look for patterns like: #12345, #US-12345, Order 12345
+            let orderId = "Unknown";
+            const idMatch = subject.match(/(?:#|Order\s+)([A-Za-z0-9-]+)/i);
+            if (idMatch) {
+                orderId = idMatch[1];
+            } else {
+                // Fallback: Use Message ID if no Order ID found (Treat as unique event)
+                orderId = `MSG-${id}`; 
             }
 
-            if (productName.length > 55) productName = productName.substring(0, 55) + "...";
+            // Create Unique Key for this Order
+            const uniqueKey = `${storeName}-${orderId}`;
 
-            // 4. IDENTIFY EMAIL
+            // 4. DETERMINE STATUS OF THIS EMAIL
+            const cancelKeywords = ['cancel', 'refund', 'void', 'decline', 'unsuccessful'];
+            const isCancellation = cancelKeywords.some(w => subLow.includes(w));
+            const currentStatus = isCancellation ? 'canceled' : 'confirmed';
+
+            // 5. SCRAPE DETAILS (Product, Price, Image)
+            // We only scrape if it's NOT a cancellation (Cancellations usually lack product info)
+            let details = { name: null, image: null, price: 0, qty: 1 };
+            
+            if (!isCancellation) {
+                const $ = cheerio.load(parsed.html || parsed.textAsHtml || "");
+                
+                $('img').each((i, el) => {
+                    if (details.name) return;
+                    const src = $(el).attr('src');
+                    if (!src || src.match(/(facebook|twitter|instagram|logo|spacer|tracker|icon|social|brand)/i)) return;
+                    if (!src.includes('cdn.shopify') && !src.includes('products')) return;
+
+                    details.image = src;
+                    const row = $(el).closest('tr');
+                    if (row.length > 0) {
+                        const cells = row.find('td');
+                        let rawText = cells.length >= 2 ? cells.eq(1).text().trim() : row.text().trim();
+                        let rawPrice = cells.last().text().trim();
+                        
+                        const qtyMatch = rawText.match(/(?:x|×|Qty:)\s*(\d+)/i);
+                        if (qtyMatch) {
+                            details.qty = parseInt(qtyMatch[1]);
+                            rawText = rawText.replace(qtyMatch[0], '').trim();
+                        }
+                        details.name = rawText.replace(/\s+/g, ' ').trim();
+                        if (rawPrice) {
+                            details.price = parseFloat(rawPrice.replace(/[^0-9.]/g, '')) || 0;
+                        }
+                    }
+                });
+
+                // Fallback Text Regex
+                if (!details.name) {
+                    const text = parsed.text || "";
+                    const match = text.match(/(\d+)x\s+(.*)/);
+                    if (match) { details.qty = parseInt(match[1]); details.name = match[2]; } 
+                    else { details.name = `${storeName} Drop`; }
+                }
+                if (details.name.length > 55) details.name = details.name.substring(0, 55) + "...";
+            }
+
+            // 6. IDENTIFY BUYER EMAIL
             let rawAddress = null;
             const hmeHeader = parsed.headers.get('x-icloud-hme');
             if (hmeHeader) { const match = hmeHeader.toString().match(/p=([^;]+)/); if (match) rawAddress = match[1]; }
             if (!rawAddress && parsed.to) rawAddress = parsed.to.text;
-            if (!rawAddress) rawAddress = parsed.headers.get('delivered-to');
-
+            if (!rawAddress && parsed.headers.get('delivered-to')) rawAddress = parsed.headers.get('delivered-to');
             const emailMatch = rawAddress ? rawAddress.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/) : null;
             const buyerEmail = emailMatch ? emailMatch[0].toLowerCase() : 'unknown';
 
-            // 5. AGGREGATE
-            const key = `${productName}|${storeName}`; 
-            
+            // --- MERGE LOGIC ---
+            // If order exists in map, we update it. If not, we create it.
+            let existingOrder = orderMap.get(uniqueKey) || {
+                id: orderId,
+                store: storeName,
+                email: buyerEmail,
+                status: 'confirmed', // Default
+                productName: `${storeName} Drop`,
+                image: null,
+                price: 0,
+                qty: 1
+            };
+
+            // If this email is a CANCELLATION, it overrides everything to 'canceled'
+            if (isCancellation) {
+                existingOrder.status = 'canceled';
+            } else {
+                // If this is a CONFIRMATION, we save the product details
+                // BUT we do not overwrite status if it was ALREADY canceled (rare, but possible if processed out of order)
+                if (existingOrder.status !== 'canceled') {
+                    existingOrder.status = 'confirmed';
+                }
+                // Always update metadata from the rich confirmation email
+                if (details.name && !details.name.includes("Drop")) existingOrder.productName = details.name;
+                if (details.image) existingOrder.image = details.image;
+                if (details.price > 0) existingOrder.price = details.price;
+                if (details.qty > 1) existingOrder.qty = details.qty;
+            }
+
+            orderMap.set(uniqueKey, existingOrder);
+        }
+
+        connection.end();
+
+        // --- PHASE 2: AGGREGATE UNIQUE ORDERS ---
+        // Now we iterate the Unique Orders (not the emails) to build the dashboard
+        let productGroups = {};
+
+        orderMap.forEach((order) => {
+            const key = `${order.productName}|${order.store}`;
+
             if (!productGroups[key]) {
                 productGroups[key] = {
-                    name: productName,
-                    store: storeName,
-                    image: productImage,
+                    name: order.productName,
+                    store: order.store,
+                    image: order.image,
                     totalOrders: 0,
-                    totalItems: 0,  // Sum of Qty
-                    totalSpend: 0,  // Sum of Price
+                    totalItems: 0,
+                    totalSpend: 0,
                     canceled: 0,
                     confirmed: 0,
                     emails: {}
                 };
             }
 
-            let status = subLow.includes('cancel') ? 'canceled' : 'confirmed';
-            
+            // Global Counts
             productGroups[key].totalOrders++;
-            if (status === 'confirmed') {
-                productGroups[key].confirmed++;
-                productGroups[key].totalItems += productQty;
-                productGroups[key].totalSpend += productPrice;
-            } else {
+            
+            if (order.status === 'canceled') {
                 productGroups[key].canceled++;
+            } else {
+                productGroups[key].confirmed++;
+                productGroups[key].totalItems += order.qty;
+                productGroups[key].totalSpend += order.price;
             }
 
-            if (!productGroups[key].emails[buyerEmail]) {
-                productGroups[key].emails[buyerEmail] = {
-                    email: buyerEmail,
-                    count: 0,
-                    canceled: 0,
-                    latestPrice: productPrice,
-                    latestQty: productQty
+            // Email Breakdown
+            if (!productGroups[key].emails[order.email]) {
+                productGroups[key].emails[order.email] = {
+                    email: order.email,
+                    count: 0,     // Total unique orders
+                    canceled: 0,  // How many were canceled
+                    latestPrice: 0,
+                    latestQty: 0
                 };
             }
-            productGroups[key].emails[buyerEmail].count++;
-            if (status === 'canceled') productGroups[key].emails[buyerEmail].canceled++;
-        }
 
-        connection.end();
+            const emailGroup = productGroups[key].emails[order.email];
+            emailGroup.count++;
+            
+            if (order.status === 'canceled') {
+                emailGroup.canceled++;
+            } else {
+                // Only update visual details from confirmed orders
+                emailGroup.latestPrice = order.price;
+                emailGroup.latestQty = order.qty;
+            }
+        });
 
-        // Global Stats Calculation
+        // Final Sort
         let globalStats = { spend: 0, items: 0, orders: 0 };
         const drops = Object.values(productGroups).map(prod => {
             globalStats.spend += prod.totalSpend;
