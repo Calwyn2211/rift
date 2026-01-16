@@ -1,7 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
 
-// Money Formatter
 const formatMoney = (amount) => {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 };
@@ -118,13 +117,21 @@ export default function App() {
                     </div>
                     <p className="text-[10px] text-gray-500 uppercase font-bold mt-1 tracking-wide">{drop.store}</p>
                     
-                    <div className="flex items-center space-x-2 mt-3">
-                        <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                            <div className="h-full bg-emerald-500" style={{ width: `${(drop.confirmed / drop.totalOrders) * 100}%` }}></div>
-                        </div>
-                        <span className="text-[10px] text-gray-400 font-mono">
-                            {drop.confirmed} <span className="text-gray-600">/</span> {drop.totalOrders}
+                    {/* STACKED PROGRESS BAR (Green/Red Split) */}
+                    <div className="flex h-1.5 w-full bg-gray-800 rounded-full overflow-hidden mt-3">
+                        <div className="h-full bg-emerald-500" style={{ width: `${(drop.confirmed / drop.totalOrders) * 100}%` }}></div>
+                        <div className="h-full bg-red-500" style={{ width: `${(drop.canceled / drop.totalOrders) * 100}%` }}></div>
+                    </div>
+
+                    <div className="flex items-center space-x-3 mt-1.5">
+                        <span className="text-[10px] text-emerald-500 font-mono font-bold">
+                            {drop.confirmed} Confirmed
                         </span>
+                        {drop.canceled > 0 && (
+                            <span className="text-[10px] text-red-500 font-mono font-bold">
+                                {drop.canceled} Canceled
+                            </span>
+                        )}
                     </div>
                   </div>
                 </div>
@@ -159,6 +166,18 @@ export default function App() {
                 <span className="w-1 h-1 bg-gray-600 rounded-full"></span>
                 <span className="text-xs text-emerald-400 font-bold">{formatMoney(selectedDrop.totalSpend)}</span>
             </div>
+            
+            {/* HERO STATS */}
+            <div className="flex space-x-4 mt-3">
+                 <span className="text-xs font-bold text-emerald-500 bg-emerald-900/20 px-2 py-1 rounded">
+                    {selectedDrop.confirmed} Confirmed
+                 </span>
+                 {selectedDrop.canceled > 0 && (
+                    <span className="text-xs font-bold text-red-500 bg-red-900/20 px-2 py-1 rounded">
+                        {selectedDrop.canceled} Canceled
+                    </span>
+                 )}
+            </div>
         </div>
 
         {/* LIST HEADER */}
@@ -169,16 +188,13 @@ export default function App() {
             </button>
         </div>
 
-        {/* RECEIPTS LIST (UPDATED FOR CANCELLATION TRACKING) */}
+        {/* RECEIPTS LIST */}
         <div className="space-y-3">
           {selectedDrop.breakdown.map((item, i) => {
-             // Logic: Calculate how many confirmed
              const confirmedCount = item.count - item.canceled;
-
              return (
               <div key={i} className="bg-[#151515] border border-white/5 rounded-xl p-4 flex justify-between items-center">
                 
-                {/* Left: Email & Badges */}
                 <div className="flex flex-col min-w-0 mr-4">
                   <span className="text-sm font-mono text-gray-300 truncate mb-1">{maskEmail(item.email)}</span>
                   <div className="flex items-center space-x-2">
@@ -193,36 +209,25 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Right: Stats Breakdown */}
                 <div className="text-right flex flex-col items-end">
-                  
-                  {/* Total Orders Header */}
                   <div className="font-bold text-yellow-500 text-sm">
                       {item.count} Order{item.count > 1 ? 's' : ''}
                   </div>
-
-                  {/* Sub-line: Breakdown */}
                   <div className="text-[10px] font-bold mt-1 flex space-x-1">
-                      {/* Confirmed Count */}
                       {confirmedCount > 0 && (
-                          <span className="text-gray-500">
+                          <span className="text-emerald-500">
                              {confirmedCount} Confirmed
                           </span>
                       )}
-
-                      {/* Dot separator if both exist */}
                       {confirmedCount > 0 && item.canceled > 0 && (
                           <span className="text-gray-700">•</span>
                       )}
-
-                      {/* Canceled Count */}
                       {item.canceled > 0 && (
                           <span className="text-red-500">
                              {item.canceled} Canceled
                           </span>
                       )}
                   </div>
-
                 </div>
               </div>
              );
