@@ -1,19 +1,11 @@
 [
   {
-    "id": "topps-deep-7",
-    "date": "Pre-order available April 13 at 12pm ET",
-    "name": "2026 Bowman Baseball",
-    "type": "PRE-ORDER",
+    "id": "topps-deep-0",
+    "date": "Available May 5 on EQL",
+    "name": "2025 Topps 30 Years of Toy Story",
+    "type": "EQL DRAW",
     "price": "TBD",
-    "timestamp": 1776031200000
-  },
-  {
-    "id": "topps-deep-6",
-    "date": "Available for pre-order on April 14 at 12pm ET",
-    "name": "2025–26 Topps Hoops Basketball",
-    "type": "PRE-ORDER",
-    "price": "TBD",
-    "timestamp": 1776117600000
+    "timestamp": 9999999999999
   },
   {
     "id": "topps-deep-1",
@@ -21,47 +13,7 @@
     "name": "2025 Topps Chrome® Football",
     "type": "MAIN RELEASE",
     "price": "TBD",
-    "timestamp": 1776204000000
-  },
-  {
-    "id": "topps-deep-11",
-    "date": "Available April 15 at 1pm ET",
-    "name": "2026 Topps Finest Fantastic Four",
-    "type": "MAIN RELEASE",
-    "price": "TBD",
-    "timestamp": 1776204000000
-  },
-  {
-    "id": "topps-deep-9",
-    "date": "Value Boxes available April 17",
-    "name": "2026 Topps Chrome® WWE",
-    "type": "MAIN RELEASE",
-    "price": "TBD",
-    "timestamp": 1776376800000
-  },
-  {
-    "id": "topps-deep-10",
-    "date": "Available April 17 at 12pm ET",
-    "name": "2026 Topps Disney Neon",
-    "type": "MAIN RELEASE",
-    "price": "TBD",
-    "timestamp": 1776376800000
-  },
-  {
-    "id": "topps-deep-4",
-    "date": "Available April 22 2025-26 Bowman Basketball Origin of greatness Get notified Download checklist",
-    "name": "2025-26 Bowman Basketball",
-    "type": "MAIN RELEASE",
-    "price": "TBD",
-    "timestamp": 1776808800000
-  },
-  {
-    "id": "topps-deep-12",
-    "date": "Available April 24",
-    "name": "2026 Topps Graphite Tennis",
-    "type": "MAIN RELEASE",
-    "price": "TBD",
-    "timestamp": 1776981600000
+    "timestamp": 9999999999999
   },
   {
     "id": "topps-deep-2",
@@ -69,7 +21,23 @@
     "name": "2025 Topps Definitive Baseball",
     "type": "EQL DRAW",
     "price": "TBD",
-    "timestamp": 1777413600000
+    "timestamp": 9999999999999
+  },
+  {
+    "id": "topps-deep-3",
+    "date": "TBA",
+    "name": "2025 Topps Finest Football",
+    "type": "EQL DRAW",
+    "price": "TBD",
+    "timestamp": 9999999999999
+  },
+  {
+    "id": "topps-deep-4",
+    "date": "Available April 22 2025-26 Bowman Basketball Origin of greatness Get notified Download checklist",
+    "name": "2025-26 Bowman Basketball",
+    "type": "MAIN RELEASE",
+    "price": "TBD",
+    "timestamp": 9999999999999
   },
   {
     "id": "topps-deep-5",
@@ -77,7 +45,23 @@
     "name": "2025-26 Topps Cosmic Chrome® Basketball",
     "type": "MAIN RELEASE",
     "price": "TBD",
-    "timestamp": 1777413600000
+    "timestamp": 9999999999999
+  },
+  {
+    "id": "topps-deep-6",
+    "date": "Available for pre-order on April 14 at 12pm ET",
+    "name": "2025–26 Topps Hoops Basketball",
+    "type": "PRE-ORDER",
+    "price": "TBD",
+    "timestamp": 9999999999999
+  },
+  {
+    "id": "topps-deep-7",
+    "date": "Pre-order available April 13 at 12pm ET",
+    "name": "2026 Bowman Baseball",
+    "type": "PRE-ORDER",
+    "price": "TBD",
+    "timestamp": 9999999999999
   },
   {
     "id": "topps-deep-8",
@@ -85,29 +69,45 @@
     "name": "2026 Topps Chrome® Black Baseball",
     "type": "MAIN RELEASE",
     "price": "TBD",
-    "timestamp": 1777413600000
+    "timestamp": 9999999999999
   },
   {
-    "id": "topps-deep-0",
-    "date": "Available May 5 on EQL",
-    "name": "2025 Topps 30 Years of Toy Story",
-    "type": "EQL DRAW",
+    "id": "topps-deep-9",
+    "date": "Value Boxes available April 17",
+    "name": "2026 Topps Chrome® WWE",
+    "type": "MAIN RELEASE",
     "price": "TBD",
-    "timestamp": 1777932000000
+    "timestamp": 9999999999999
+  },
+  {
+    "id": "topps-deep-10",
+    "date": "Available April 17 at 12pm ET",
+    "name": "2026 Topps Disney Neon",
+    "type": "MAIN RELEASE",
+    "price": "TBD",
+    "timestamp": 9999999999999
+  },
+  {
+    "id": "topps-deep-11",
+    "date": "Available April 15 at 1pm ET",
+    "name": "2026 Topps Finest Fantastic Four",
+    "type": "MAIN RELEASE",
+    "price": "TBD",
+    "timestamp": 9999999999999
+  },
+  {
+    "id": "topps-deep-12",
+    "date": "Available April 24",
+    "name": "2026 Topps Graphite Tennis",
+    "type": "MAIN RELEASE",
+    "price": "TBD",
+    "timestamp": 9999999999999
   },
   {
     "id": "topps-deep-13",
     "date": "Available May 7",
     "name": "Topps Chrome® UEFA Club Competitions 2025-26",
     "type": "MAIN RELEASE",
-    "price": "TBD",
-    "timestamp": 1778104800000
-  },
-  {
-    "id": "topps-deep-3",
-    "date": "TBA",
-    "name": "2025 Topps Finest Football",
-    "type": "EQL DRAW",
     "price": "TBD",
     "timestamp": 9999999999999
   }
