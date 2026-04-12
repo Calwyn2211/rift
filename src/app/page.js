@@ -5,13 +5,27 @@ const formatMoney = (amount) => {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 };
 
-// --- SKELETON COMPONENT ---
+const groupReleasesByMonth = (releases) => {
+  if (!releases) return {};
+  return releases.reduce((acc, release) => {
+    let monthYear = "COMING SOON / TBA";
+    const d = new Date(release.date);
+    if (!isNaN(d) && release.date.includes('-')) {
+      monthYear = d.toLocaleString('en-US', { month: 'long', year: 'numeric' }).toUpperCase();
+    }
+    if (!acc[monthYear]) acc[monthYear] = [];
+    acc[monthYear].push(release);
+    return acc;
+  }, {});
+};
+
 const DashboardSkeleton = () => (
   <div className="animate-pulse space-y-6">
     <div className="grid grid-cols-2 gap-3">
       <div className="bg-[#151515] h-20 rounded-2xl border border-white/5"></div>
       <div className="bg-[#151515] h-20 rounded-2xl border border-white/5"></div>
     </div>
+    <div className="bg-[#151515] h-16 rounded-2xl border border-white/5"></div>
     <div className="grid grid-cols-2 gap-3">
       <div className="bg-[#151515] h-24 rounded-2xl border border-white/5"></div>
       <div className="bg-[#151515] h-24 rounded-2xl border border-white/5"></div>
@@ -24,7 +38,6 @@ const DashboardSkeleton = () => (
   </div>
 );
 
-// --- SWIPEABLE ROW COMPONENT ---
 const SwipeableRow = ({ children, onHide }) => {
   return (
     <div className="relative w-full overflow-hidden rounded-xl h-[88px]">
@@ -41,11 +54,14 @@ const SwipeableRow = ({ children, onHide }) => {
 
 export default function App() {
   const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [calendarData, setCalendarData] = useState([]);
+  const[loading, setLoading] = useState(true);
   const [selectedDrop, setSelectedDrop] = useState(null);
   const [showCards, setShowCards] = useState(false); 
-  const [showAddresses, setShowAddresses] = useState(false); 
-  const [trackingModal, setTrackingModal] = useState(null);
+  const[showAddresses, setShowAddresses] = useState(false); 
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [selectedRelease, setSelectedRelease] = useState(null); // NEW: For detailed release popup
+  const[trackingModal, setTrackingModal] = useState(null);
   const [privacyMode, setPrivacyMode] = useState(false);
   const [search, setSearch] = useState('');
   const [hiddenItems, setHiddenItems] = useState([]);
@@ -53,14 +69,19 @@ export default function App() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/check-orders');
-      const json = await res.json();
-      setData(json);
+      const[ordersRes, calRes] = await Promise.all([
+          fetch('/api/check-orders'),
+          fetch('/api/calendar')
+      ]);
+      const ordersJson = await ordersRes.json();
+      const calJson = await calRes.json();
+      setData(ordersJson);
+      setCalendarData(calJson.releases ||[]);
     } catch (e) { console.error(e); }
     setLoading(false);
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); },[]);
 
   const maskEmail = (email) => {
     if (!privacyMode) return email;
@@ -76,7 +97,7 @@ export default function App() {
         const confirmedCount = item.count - item.canceled;
         if (confirmedCount <= 0) return;
         const qty = item.latestQty || 1;
-        const trackingList = item.packages || [];
+        const trackingList = item.packages ||[];
         if (trackingList.length > 0) {
             trackingList.forEach(t => {
                 content += `${selectedDrop.name} - Qty ${qty} - Status: ${t.status} - ${t.tracking || 'No Tracking'} - ${t.carrier || 'Unknown'}\n`;
@@ -98,12 +119,13 @@ export default function App() {
   const filteredDrops = data?.drops?.filter(d => 
     d.name.toLowerCase().includes(search.toLowerCase()) || 
     d.store.toLowerCase().includes(search.toLowerCase())
-  ) || [];
+  ) ||[];
 
   // --- ICONS ---
   const TruckIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" /></svg>);
   const CardIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" /></svg>);
   const HomeIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" /></svg>);
+  const CalendarIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>);
 
   // --- TIMELINE MODAL ---
   const TimelineModal = () => {
@@ -117,73 +139,55 @@ export default function App() {
                 </div>
                 <div className="p-6 max-h-[60vh] overflow-y-auto">
                     {trackingModal.map((pkg, i) => {
-                        const steps = ['unfulfilled', 'shipped', 'delivered'];
+                        const steps =['unfulfilled', 'shipped', 'delivered'];
                         const currentIdx = steps.indexOf(pkg.status) === -1 ? 0 : steps.indexOf(pkg.status);
-                        
+                        const Check = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 text-black"><path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" /></svg>;
+
                         return (
                             <div key={i} className="mb-8 last:mb-0">
-                                <p className="text-xs font-bold text-gray-400 mb-6 uppercase tracking-wider flex items-center">
-                                    <span className="bg-gray-800 text-gray-300 px-1.5 py-0.5 rounded mr-2">#{pkg.id}</span> 
-                                    Timeline
-                                </p>
-                                
-                                <div className="space-y-0">
-                                    
-                                    {/* STEP 1: CONFIRMED */}
+                                <div className="flex justify-between items-center mb-6">
+                                    <span className="text-[10px] font-bold bg-gray-800 text-gray-300 px-2 py-1 rounded tracking-wider">#{pkg.id}</span>
+                                </div>
+                                <div className="flex flex-col">
                                     <div className="flex gap-4">
-                                        <div className="flex flex-col items-center w-4">
-                                            {/* DOT */}
-                                            <div className={`w-4 h-4 rounded-full border-2 z-10 flex items-center justify-center shrink-0 ${currentIdx >= 0 ? 'bg-[#101010] border-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]' : 'bg-[#151515] border-gray-700'}`}>
-                                                {currentIdx >= 0 && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
-                                            </div>
-                                            {/* LINE DOWN (Green) */}
-                                            <div className={`w-0.5 h-12 -mb-2 ${currentIdx >= 1 ? 'bg-emerald-500' : 'bg-gray-800'}`}></div>
+                                        <div className="flex flex-col items-center relative">
+                                            <div className="w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center z-10 shrink-0 border-2 border-[#101010] shadow-[0_0_8px_rgba(16,185,129,0.3)]"></div>
+                                            <div className={`w-0.5 h-14 absolute top-4 ${currentIdx >= 1 ? 'bg-emerald-500' : 'bg-gray-800'}`}></div>
                                         </div>
-                                        <div className="pb-6 pt-0.5">
-                                            <p className={`text-sm font-bold leading-none ${currentIdx >= 0 ? 'text-white' : 'text-gray-500'}`}>Order Confirmed</p>
+                                        <div className="pb-8 -mt-1">
+                                            <p className="text-sm font-bold text-white leading-none">Order Confirmed</p>
                                             <p className="text-[10px] text-gray-500 mt-1">Order processed successfully</p>
                                         </div>
                                     </div>
-
-                                    {/* STEP 2: SHIPPED */}
                                     <div className="flex gap-4">
-                                        <div className="flex flex-col items-center w-4">
-                                            {/* DOT */}
-                                            <div className={`w-4 h-4 rounded-full border-2 z-10 flex items-center justify-center shrink-0 ${currentIdx >= 1 ? 'bg-[#101010] border-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.3)]' : 'bg-[#151515] border-gray-700'}`}>
-                                                {currentIdx >= 1 && <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
-                                            </div>
-                                            {/* LINE DOWN (Blue) */}
-                                            <div className={`w-0.5 h-12 -mb-2 ${currentIdx >= 2 ? 'bg-blue-500' : 'bg-gray-800'}`}></div>
+                                        <div className="flex flex-col items-center relative">
+                                            <div className={`w-4 h-4 rounded-full flex items-center justify-center z-10 shrink-0 border-2 ${currentIdx >= 1 ? 'bg-blue-500 border-[#101010] shadow-[0_0_8px_rgba(59,130,246,0.3)]' : 'bg-[#151515] border-gray-700'}`}></div>
+                                            <div className={`w-0.5 h-14 absolute top-4 ${currentIdx >= 2 ? 'bg-blue-500' : 'bg-gray-800'}`}></div>
                                         </div>
-                                        <div className="pb-6 pt-0.5">
-                                            <p className={`text-sm font-bold leading-none ${currentIdx >= 1 ? 'text-white' : 'text-gray-500'}`}>Shipped</p>
+                                        <div className="pb-8 -mt-1">
+                                            <p className={`text-sm font-bold leading-none ${currentIdx >= 1 ? 'text-white' : 'text-gray-600'}`}>Shipped</p>
                                             {currentIdx >= 1 ? (
                                                 <div className="mt-1">
                                                     <p className="text-[10px] text-blue-400 font-mono">{pkg.carrier}</p>
                                                     <p className="text-[10px] text-gray-500 font-mono tracking-wide">{pkg.tracking}</p>
                                                 </div>
-                                            ) : <p className="text-[10px] text-gray-500 mt-1">Pending shipment</p>}
+                                            ) : <p className="text-[10px] text-gray-600 mt-1">Pending shipment</p>}
                                         </div>
                                     </div>
-
-                                    {/* STEP 3: DELIVERED */}
                                     <div className="flex gap-4">
-                                        <div className="flex flex-col items-center w-4">
-                                            {/* DOT */}
-                                            <div className={`w-4 h-4 rounded-full border-2 z-10 flex items-center justify-center shrink-0 ${currentIdx >= 2 ? 'bg-[#101010] border-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.3)]' : 'bg-[#151515] border-gray-700'}`}>
-                                                {currentIdx >= 2 && <div className="w-1.5 h-1.5 rounded-full bg-yellow-500" />}
-                                            </div>
+                                        <div className="flex flex-col items-center relative">
+                                            <div className={`w-4 h-4 rounded-full flex items-center justify-center z-10 shrink-0 border-2 ${currentIdx >= 2 ? 'bg-yellow-500 border-[#101010] shadow-[0_0_8px_rgba(234,179,8,0.3)]' : 'bg-[#151515] border-gray-700'}`}></div>
                                         </div>
-                                        <div className="pt-0.5">
-                                            <p className={`text-sm font-bold leading-none ${currentIdx >= 2 ? 'text-white' : 'text-gray-500'}`}>Delivered</p>
-                                            <p className="text-[10px] text-gray-500 mt-1">{currentIdx >= 2 ? 'Package arrived' : 'Waiting for delivery'}</p>
+                                        <div className="-mt-1">
+                                            <p className={`text-sm font-bold leading-none ${currentIdx >= 2 ? 'text-white' : 'text-gray-600'}`}>Delivered</p>
+                                            <p className={`text-[10px] mt-1 ${currentIdx >= 2 ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                {currentIdx >= 2 ? 'Package arrived' : 'Waiting for delivery'}
+                                            </p>
                                         </div>
                                     </div>
-
                                 </div>
-
                                 {pkg.tracking && (
-                                    <a href={`https://t.17track.net/en#nums=${pkg.tracking}`} target="_blank" className="mt-8 block w-full text-center bg-white/5 hover:bg-white/10 text-white text-xs font-bold py-3 rounded-xl transition-colors border border-white/5 flex items-center justify-center space-x-2">
+                                    <a href={`https://t.17track.net/en#nums=${pkg.tracking}`} target="_blank" className="mt-6 block w-full text-center bg-white/5 hover:bg-white/10 text-white text-xs font-bold py-3 rounded-xl transition-colors border border-white/5 flex items-center justify-center space-x-2">
                                         <span>TRACK LIVE</span>
                                     </a>
                                 )}
@@ -236,11 +240,158 @@ export default function App() {
     </div>
   );
 
+  // --- RELEASE DETAIL MODAL (NEW) ---
+  const ReleaseDetailModal = () => {
+      if (!selectedRelease) return null;
+      
+      const d = new Date(selectedRelease.date);
+      const fullDate = isNaN(d) ? "TBA / COMING SOON" : d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      
+      const isLive = selectedRelease.type === 'LIVE';
+      const isNews = selectedRelease.type === 'NEWS';
+      let badgeColor = 'text-purple-400 bg-purple-400/10 border-purple-400/20'; // Default PRE-ORDER
+      if (isLive) badgeColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
+      if (isNews) badgeColor = 'text-blue-400 bg-blue-400/10 border-blue-400/20';
+
+      return (
+          <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center bg-black/90 backdrop-blur-md p-4 transition-all">
+              <div className="bg-[#101010] w-full max-w-sm rounded-3xl border border-white/10 overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-200">
+                  <div className="p-5 border-b border-white/5 flex justify-between items-center bg-[#151515]">
+                      <h2 className="text-sm font-black text-white uppercase tracking-widest">Release Details</h2>
+                      <button onClick={() => setSelectedRelease(null)} className="text-gray-500 hover:text-white text-xs font-bold">CLOSE</button>
+                  </div>
+                  <div className="p-6">
+                      <div className="mb-6">
+                          <span className={`text-[10px] font-bold px-2 py-1 rounded border ${badgeColor} mb-3 inline-block`}>
+                              {selectedRelease.type}
+                          </span>
+                          <h3 className="text-xl font-bold text-white leading-tight mb-2">{selectedRelease.name}</h3>
+                          <p className="text-sm text-gray-400">{fullDate}</p>
+                      </div>
+                      
+                      <div className="bg-[#151515] rounded-xl p-4 border border-white/5 space-y-3">
+                          <div className="flex justify-between items-center">
+                              <span className="text-xs text-gray-500 font-bold uppercase">Estimated Price</span>
+                              <span className="text-sm text-emerald-400 font-bold font-mono">{selectedRelease.price}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                              <span className="text-xs text-gray-500 font-bold uppercase">Store / Brand</span>
+                              <span className="text-sm text-white font-bold">Topps / Retail</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                              <span className="text-xs text-gray-500 font-bold uppercase">Status</span>
+                              <span className="text-sm text-gray-300 font-bold">{isNaN(d) ? 'Awaiting Date' : 'Confirmed'}</span>
+                          </div>
+                      </div>
+
+                      <button className="mt-6 w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold py-3 rounded-xl text-xs transition-colors flex justify-center items-center space-x-2">
+                          <span>SET REMINDER</span>
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      </button>
+                  </div>
+              </div>
+          </div>
+      );
+  };
+
+  // --- CALENDAR MODAL ---
+  const DropCalendarModal = () => {
+    if (!showCalendar) return null;
+    const groupedReleases = groupReleasesByMonth(calendarData);
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/90 backdrop-blur-md p-4 transition-all">
+            <div className="bg-[#101010] w-full max-w-md h-[85vh] rounded-3xl border border-white/10 overflow-hidden shadow-2xl flex flex-col animate-in slide-in-from-bottom-10 fade-in duration-200">
+                <div className="p-5 border-b border-white/5 flex justify-between items-center bg-[#151515] shrink-0">
+                    <div className="flex items-center space-x-3">
+                        <CalendarIcon className="w-5 h-5 text-purple-400" />
+                        <h2 className="text-sm font-black text-white uppercase tracking-widest">Release Calendar</h2>
+                    </div>
+                    <button onClick={() => setShowCalendar(false)} className="text-gray-500 hover:text-white text-xs font-bold">CLOSE</button>
+                </div>
+                
+                <div className="p-4 overflow-y-auto flex-1 space-y-6">
+                    {Object.keys(groupedReleases).length === 0 && (
+                        <p className="text-center text-gray-600 text-xs py-10">Loading calendar...</p>
+                    )}
+                    {Object.keys(groupedReleases).map((month, idx) => (
+                        <div key={idx}>
+                            <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-3 sticky top-0 bg-[#101010] py-1 z-10">
+                                {month}
+                            </h3>
+                            <div className="space-y-3">
+                                {groupedReleases[month].map((drop, dropIdx) => {
+                                    let day = "TBA";
+                                    let shortMonth = "SOON";
+                                    
+                                    const parsedDate = new Date(drop.date);
+                                    if (!isNaN(parsedDate)) {
+                                        day = parsedDate.getDate();
+                                        shortMonth = parsedDate.toLocaleString('en-US', { month: 'short' }).toUpperCase();
+                                    } else {
+                                        const match = drop.date.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2})/i);
+                                        if (match) {
+                                            shortMonth = match[1].toUpperCase();
+                                            day = match[2];
+                                        }
+                                    }
+                                    
+                                    // --- UPDATED COLOR CODING ---
+                                    const t = drop.type.toUpperCase();
+                                    let badgeColor = 'text-blue-400 bg-blue-400/10 border-blue-400/20'; 
+                                    
+                                    if (t === 'MAIN RELEASE') {
+                                        badgeColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'; // Green
+                                    } else if (t === 'PRE-ORDER') {
+                                        badgeColor = 'text-purple-400 bg-purple-400/10 border-purple-400/20'; // Purple
+                                    } else if (t === 'EQL DRAW') {
+                                        badgeColor = 'text-orange-400 bg-orange-400/10 border-orange-400/20'; // Orange
+                                    }
+
+                                    return (
+                                        <button 
+                                          key={dropIdx} 
+                                          onClick={() => setSelectedRelease(drop)}
+                                          className="w-full text-left flex bg-[#151515] border border-white/5 hover:border-white/20 hover:bg-[#1a1a1a] rounded-xl overflow-hidden shadow-sm transition-all active:scale-[0.98]"
+                                        >
+                                            <div className="w-16 bg-black/40 border-r border-white/5 flex flex-col items-center justify-center shrink-0 py-3 px-1">
+                                                <span className="text-[9px] font-bold text-gray-500 mb-1 truncate w-full text-center">{shortMonth}</span>
+                                                <span className="text-lg font-black text-white leading-none">{day}</span>
+                                            </div>
+                                            
+                                            <div className="p-3 flex-1 min-w-0 flex flex-col justify-center">
+                                                <div className="flex justify-between items-start mb-0.5">
+                                                    <h4 className="text-sm font-bold text-gray-200 leading-tight pr-2 line-clamp-2">{drop.name}</h4>
+                                                </div>
+                                                <p className="text-[10px] text-gray-500 font-mono mb-2 truncate">{drop.date}</p>
+                                                
+                                                <div className="flex items-center justify-between">
+                                                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${badgeColor}`}>
+                                                        {drop.type}
+                                                    </span>
+                                                    <span className="text-[10px] text-gray-400 font-mono font-bold">{drop.price}</span>
+                                                </div>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+  };
+
+  // --- HOME VIEW ---
   if (!selectedDrop) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] text-white font-sans pb-10">
         {showCards && <AnalyticsModal title="Card Risk Profile" type="card" items={data?.cards} Icon={CardIcon} onClose={() => setShowCards(false)} />}
         {showAddresses && <AnalyticsModal title="Address Risk Profile" type="address" items={data?.addresses} Icon={HomeIcon} onClose={() => setShowAddresses(false)} />}
+        <DropCalendarModal />
+        <ReleaseDetailModal />
         
         <div className="sticky top-0 z-50 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-white/10 p-4">
           <div className="max-w-md mx-auto flex justify-between items-center">
@@ -268,6 +419,24 @@ export default function App() {
                 </div>
               </div>
 
+              {/* CALENDAR BUTTON */}
+              <button 
+                onClick={() => setShowCalendar(true)}
+                className="w-full mb-3 relative overflow-hidden bg-gradient-to-br from-[#1a1525] to-[#151515] border border-purple-500/20 hover:border-purple-500/40 p-4 rounded-2xl flex items-center justify-between group transition-all shadow-lg text-left"
+              >
+                  <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="flex items-center space-x-4 relative z-10">
+                      <div className="bg-purple-900/30 p-2.5 rounded-xl border border-purple-500/20">
+                          <CalendarIcon className="w-6 h-6 text-purple-400" />
+                      </div>
+                      <div>
+                          <p className="text-sm font-bold text-gray-200 group-hover:text-white transition-colors">Release Calendar</p>
+                          <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-0.5 font-bold">Upcoming Drops & News</p>
+                      </div>
+                  </div>
+                  <span className="text-purple-500/50 group-hover:text-purple-400 group-hover:translate-x-1 transition-all relative z-10 font-black">→</span>
+              </button>
+
               <div className="grid grid-cols-2 gap-3 mb-6">
                   <button onClick={() => setShowCards(true)} className="bg-[#151515] border border-white/5 hover:border-yellow-600/50 p-4 rounded-2xl flex flex-col items-center justify-center group transition-all relative overflow-hidden">
                       <div className="absolute inset-0 bg-gradient-to-t from-yellow-900/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -288,8 +457,8 @@ export default function App() {
               </div>
 
               <div className="space-y-4">
-                {filteredDrops.length === 0 && <div className="text-center text-gray-600 text-xs py-10">No drops found.</div>}
-                {filteredDrops.map((drop, i) => (
+                {!loading && filteredDrops.length === 0 && <div className="text-center text-gray-600 text-xs py-10">No drops found.</div>}
+                {!loading && filteredDrops.map((drop, i) => (
                   <div key={i} onClick={() => setSelectedDrop(drop)} className="group relative bg-[#151515] border border-white/5 rounded-2xl p-4 active:scale-[0.98] transition-all cursor-pointer hover:border-white/10">
                     <div className="flex items-start">
                       <div className="w-16 h-16 bg-gray-800 rounded-lg mr-4 flex-shrink-0 overflow-hidden border border-white/5 relative">
@@ -355,7 +524,6 @@ export default function App() {
         
         <div className="space-y-3">
           {selectedDrop.breakdown.map((item, i) => {
-             // CHECK IF HIDDEN
              if (hiddenItems.includes(item.email)) return null;
 
              const confirmedCount = item.count - item.canceled;
