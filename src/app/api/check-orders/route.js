@@ -5,26 +5,26 @@ import * as cheerio from 'cheerio';
 
 export const dynamic = 'force-dynamic';
 
-const config = {
-    imap: {
-        user: process.env.EMAIL_USER,
-        password: process.env.EMAIL_PASS,
-        host: 'imap.gmail.com',
-        port: 993,
-        tls: true,
-        tlsOptions: { rejectUnauthorized: false },
-        authTimeout: 20000 
-    }
-};
-
 export async function GET() {
     try {
+        const config = {
+            imap: {
+                user: process.env.EMAIL_USER,
+                password: process.env.EMAIL_PASS,
+                host: 'imap.gmail.com',
+                port: 993,
+                tls: true,
+                tlsOptions: { rejectUnauthorized: false },
+                authTimeout: 20000 
+            }
+        };
+
         const connection = await imap.connect(config);
         await connection.openBox('INBOX');
 
         const delay = 14 * 24 * 3600 * 1000;
         const searchCriteria = [['SINCE', new Date(Date.now() - delay).toISOString()], ['HEADER', 'SUBJECT', 'Order']];
-        const fetchOptions = { bodies: ['HEADER', 'TEXT', ''], markSeen: false }; 
+        const fetchOptions = { bodies:['HEADER', 'TEXT', ''], markSeen: false }; 
         const messages = await connection.search(searchCriteria, fetchOptions);
 
         let orderMap = new Map();
@@ -40,53 +40,37 @@ export async function GET() {
                 const fromRaw = parsed.from?.text || "Unknown";
                 let storeName = fromRaw.replace(/<.*>/, '').replace(/"/g, '').trim();
 
-                // 1. STRICT FILTERING
                 if (['buy order', 'invoice', 'return', 'points', 'balance'].some(w => subLow.includes(w))) continue;
-                
-                // HARD BLOCK: Loot Vault Entries
                 if (storeName.toLowerCase().includes('loot') && (subLow.includes('entry') || !subject.includes('#'))) continue;
 
                 const isDelivered = subLow.includes('delivered');
                 const isShipping = !isDelivered && (subLow.includes('ship') || subLow.includes('way') || subLow.includes('transit'));
-                const isCancellation = ['cancel', 'refund', 'void', 'decline', 'unsuccessful'].some(w => subLow.includes(w));
+                const isCancellation =['cancel', 'refund', 'void', 'decline', 'unsuccessful'].some(w => subLow.includes(w));
                 const isConfirmation = ['confirmed', 'thank', '#'].some(w => subLow.includes(w)) && !isShipping && !isDelivered && !isCancellation;
 
                 if (!isConfirmation && !isShipping && !isCancellation && !isDelivered) continue;
 
-                // 2. EXTRACT ORDER ID
                 let orderId = "Unknown";
                 const idMatch = subject.match(/(?:#|Order\s+)([A-Z0-9-]{3,})/i);
-                if (idMatch && /\d/.test(idMatch[1])) { 
-                    orderId = idMatch[1];
-                } else { 
-                    orderId = `MSG-${id}`; 
-                }
-                
+                if (idMatch && /\d/.test(idMatch[1])) { orderId = idMatch[1]; } else { orderId = `MSG-${id}`; }
                 const uniqueKey = `${storeName}-${orderId}`;
 
-                // 3. SCRAPE DETAILS
                 let details = { name: null, image: null, price: 0, qty: 1, card: "Unknown", address: "Unknown", tracking: null, carrier: null };
-                
                 const $ = cheerio.load(parsed.html || parsed.textAsHtml || "");
                 const textBody = $.text().replace(/\s+/g, ' ').trim(); 
 
-                // CARD
                 const cardMatch = textBody.match(/(?:ending|ends)\s+(?:in|with)\s+(\d{4})/i);
-                if (cardMatch) details.card = cardMatch[1]; 
-                else if (textBody.toLowerCase().includes("paypal")) details.card = "PayPal";
+                if (cardMatch) details.card = cardMatch[1]; else if (textBody.toLowerCase().includes("paypal")) details.card = "PayPal";
 
-                // TRACKING
                 if (isShipping || isDelivered) {
                     const ups = textBody.match(/\b(1Z[0-9A-Z]{16})\b/);
                     const usps = textBody.match(/\b(9[2345]\d{20,24})\b/);
                     const fedex = textBody.match(/\b(\d{12,15})\b/);
-                    
                     if (ups) { details.tracking = ups[1]; details.carrier = "UPS"; }
                     else if (usps) { details.tracking = usps[1]; details.carrier = "USPS"; }
                     else if (fedex) { details.tracking = fedex[1]; details.carrier = "FedEx"; }
                 }
 
-                // PRODUCT & ADDRESS (Confirmation only)
                 if (isConfirmation) {
                     $('br').replaceWith(' '); 
                     let addressFound = false;
@@ -116,16 +100,13 @@ export async function GET() {
                             if (rawPrice) details.price = parseFloat(rawPrice.replace(/[^0-9.]/g, '')) || 0;
                         }
                     });
-                    
                     if (!details.name) {
                         const fallbackMatch = (parsed.text || "").match(/(\d+)x\s+(.*)/);
-                        if (fallbackMatch) { details.qty = parseInt(fallbackMatch[1]); details.name = fallbackMatch[2]; } 
-                        else { details.name = `${storeName} Drop`; }
+                        if (fallbackMatch) { details.qty = parseInt(fallbackMatch[1]); details.name = fallbackMatch[2]; } else { details.name = `${storeName} Drop`; }
                     }
                     if (details.name && details.name.length > 55) details.name = details.name.substring(0, 55) + "...";
                 }
 
-                // EMAIL IDENT
                 let rawAddress = null;
                 const hmeHeader = parsed.headers.get('x-icloud-hme');
                 if (hmeHeader) { const match = hmeHeader.toString().match(/p=([^;]+)/); if (match) rawAddress = match[1]; }
@@ -134,15 +115,12 @@ export async function GET() {
                 const emailMatch = rawAddress ? rawAddress.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/) : null;
                 const buyerEmail = emailMatch ? emailMatch[0].toLowerCase() : 'unknown';
 
-                // MERGE
                 let existingOrder = orderMap.get(uniqueKey) || {
                     id: orderId, store: storeName, email: buyerEmail, status: 'confirmed', 
                     productName: `${storeName} Drop`, image: null, price: 0, qty: 1, 
-                    card: "Unknown", address: "Unknown", tracking: null, carrier: null,
-                    deliveryStatus: 'unfulfilled'
+                    card: "Unknown", address: "Unknown", tracking: null, carrier: null, deliveryStatus: 'unfulfilled'
                 };
 
-                // Update Email if finding a better source (sometimes confirmation has alias, shipping has real)
                 if (existingOrder.email === 'unknown' && buyerEmail !== 'unknown') existingOrder.email = buyerEmail;
 
                 if (isCancellation) {
@@ -151,9 +129,7 @@ export async function GET() {
                     existingOrder.deliveryStatus = 'delivered';
                     if (details.tracking) existingOrder.tracking = details.tracking;
                 } else if (isShipping) {
-                    if (existingOrder.deliveryStatus !== 'delivered') {
-                        existingOrder.deliveryStatus = 'shipped';
-                    }
+                    if (existingOrder.deliveryStatus !== 'delivered') existingOrder.deliveryStatus = 'shipped';
                     if (details.tracking) { existingOrder.tracking = details.tracking; existingOrder.carrier = details.carrier; }
                 } else {
                     if (existingOrder.status !== 'canceled') existingOrder.status = 'confirmed';
@@ -164,19 +140,20 @@ export async function GET() {
                     if (details.card !== "Unknown") existingOrder.card = details.card;
                     if (details.address !== "Unknown") existingOrder.address = details.address;
                 }
-
                 orderMap.set(uniqueKey, existingOrder);
-            } catch (innerError) {
-                console.error("Skipping email due to parse error:", innerError);
-                // Continue loop even if one email fails
+            } catch (e) {
+                console.log("Parse error, skipping email.");
             }
         }
-
         connection.end();
 
-        // AGGREGATE
         let productGroups = {};
         let cardStats = {}; let addressStats = {};
+        
+        let globalStats = { 
+            spend: 0, items: 0, orders: 0, canceledOrders: 0,
+            lockedCapital: 0, floatingCapital: 0, liquidCapital: 0 
+        };
 
         orderMap.forEach((order) => {
             const key = `${order.productName}|${order.store}`;
@@ -185,13 +162,29 @@ export async function GET() {
             }
             
             productGroups[key].totalOrders++;
-            if (order.status === 'canceled') productGroups[key].canceled++;
-            else { productGroups[key].confirmed++; productGroups[key].totalItems += order.qty; productGroups[key].totalSpend += order.price; }
+            
+            // FIX: The scraped price IS the total. We don't multiply it again!
+            const spend = order.price; 
+
+            if (order.status === 'canceled') {
+                productGroups[key].canceled++;
+                globalStats.canceledOrders++;
+            } else {
+                productGroups[key].confirmed++; 
+                productGroups[key].totalItems += order.qty; 
+                productGroups[key].totalSpend += spend; // Fixed addition
+                
+                globalStats.spend += spend; // Fixed addition
+                globalStats.items += order.qty;
+                globalStats.orders++;
+
+                if (order.deliveryStatus === 'unfulfilled') globalStats.lockedCapital += spend;
+                else if (order.deliveryStatus === 'shipped') globalStats.floatingCapital += spend;
+                else if (order.deliveryStatus === 'delivered') globalStats.liquidCapital += spend;
+            }
 
             if (!productGroups[key].emails[order.email]) { 
-                productGroups[key].emails[order.email] = { 
-                    email: order.email, count: 0, canceled: 0, latestPrice: 0, latestQty: 0, packages: [] 
-                }; 
+                productGroups[key].emails[order.email] = { email: order.email, count: 0, canceled: 0, latestPrice: 0, latestQty: 0, packages: [] }; 
             }
             const emailGroup = productGroups[key].emails[order.email];
             emailGroup.count++;
@@ -200,12 +193,7 @@ export async function GET() {
             else { 
                 emailGroup.latestPrice = order.price; 
                 emailGroup.latestQty = order.qty;
-                emailGroup.packages.push({
-                    id: order.id,
-                    tracking: order.tracking,
-                    carrier: order.carrier,
-                    status: order.deliveryStatus
-                });
+                emailGroup.packages.push({ id: order.id, tracking: order.tracking, carrier: order.carrier, status: order.deliveryStatus });
             }
 
             if (order.card !== "Unknown") {
@@ -218,18 +206,19 @@ export async function GET() {
             }
         });
 
-        let globalStats = { spend: 0, items: 0, orders: 0 };
         const drops = Object.values(productGroups).map(prod => {
-            globalStats.spend += prod.totalSpend;
-            globalStats.items += prod.totalItems;
-            globalStats.orders += prod.confirmed;
             return { ...prod, breakdown: Object.values(prod.emails).sort((a, b) => b.count - a.count) };
         }).sort((a, b) => b.totalOrders - a.totalOrders);
 
         const cards = Object.values(cardStats).sort((a, b) => b.canceled - a.canceled);
         const addresses = Object.values(addressStats).sort((a, b) => b.canceled - a.canceled);
 
-        return NextResponse.json({ drops, globalStats, cards, addresses });
+        const totalAttempted = globalStats.orders + globalStats.canceledOrders;
+        globalStats.winRate = totalAttempted > 0 ? (globalStats.orders / totalAttempted) * 100 : 0;
+
+        const rawOrders = Array.from(orderMap.values());
+
+        return NextResponse.json({ drops, globalStats, cards, addresses, rawOrders });
 
     } catch (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
