@@ -249,7 +249,7 @@ export default function App() {
       
       const isLive = selectedRelease.type === 'LIVE';
       const isNews = selectedRelease.type === 'NEWS';
-      let badgeColor = 'text-blue-400 bg-blue-400/10 border-blue-400/20'; // Default PRE-ORDER
+      let badgeColor = 'text-purple-400 bg-purple-400/10 border-purple-400/20'; // Default PRE-ORDER
       if (isLive) badgeColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
       if (isNews) badgeColor = 'text-blue-400 bg-blue-400/10 border-blue-400/20';
 
@@ -368,7 +368,7 @@ export default function App() {
                                     if (t === 'MAIN RELEASE') {
                                         badgeColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'; 
                                     } else if (t === 'PRE-ORDER') {
-                                        badgeColor = 'text-purple-400 bg-purple-400/10 border-purple-400/20'; 
+                                        badgeColor = 'text-blue-400 bg-blue-400/10 border-blue-400/20'; 
                                     } else if (t === 'EQL DRAW') {
                                         badgeColor = 'text-orange-400 bg-orange-400/10 border-orange-400/20'; 
                                     }
