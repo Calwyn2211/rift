@@ -249,7 +249,7 @@ export default function App() {
       
       const isLive = selectedRelease.type === 'LIVE';
       const isNews = selectedRelease.type === 'NEWS';
-      let badgeColor = 'text-purple-400 bg-purple-400/10 border-purple-400/20'; // Default PRE-ORDER
+      let badgeColor = 'text-blue-400 bg-blue-400/10 border-blue-400/20'; // Default PRE-ORDER
       if (isLive) badgeColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
       if (isNews) badgeColor = 'text-blue-400 bg-blue-400/10 border-blue-400/20';
 
@@ -294,10 +294,41 @@ export default function App() {
       );
   };
 
+  // --- HELPER: GROUP BY WEEK ---
+  const groupReleasesByWeek = (releases) => {
+    if (!releases) return {};
+    
+    // Ensure array is strictly sorted chronologically before rendering
+    const sortedReleases = [...releases].sort((a, b) => (a.timestamp || 9999999999999) - (b.timestamp || 9999999999999));
+
+    return sortedReleases.reduce((acc, release) => {
+      let weekLabel = "TBA / COMING SOON";
+      const ts = release.timestamp || 9999999999999;
+      
+      if (ts !== 9999999999999) {
+        const d = new Date(ts);
+        // Find the Monday of this week
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is sunday
+        const monday = new Date(d);
+        monday.setDate(diff);
+        
+        const month = monday.toLocaleString('en-US', { month: 'long' }).toUpperCase();
+        const dateNum = monday.getDate();
+        
+        weekLabel = `WEEK OF ${month} ${dateNum}`;
+      }
+      
+      if (!acc[weekLabel]) acc[weekLabel] = [];
+      acc[weekLabel].push(release);
+      return acc;
+    }, {});
+  };
+
   // --- CALENDAR MODAL ---
   const DropCalendarModal = () => {
     if (!showCalendar) return null;
-    const groupedReleases = groupReleasesByMonth(calendarData);
+    const groupedReleases = groupReleasesByWeek(calendarData);
 
     return (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/90 backdrop-blur-md p-4 transition-all">
@@ -314,44 +345,38 @@ export default function App() {
                     {Object.keys(groupedReleases).length === 0 && (
                         <p className="text-center text-gray-600 text-xs py-10">Loading calendar...</p>
                     )}
-                    {Object.keys(groupedReleases).map((month, idx) => (
+                    {Object.keys(groupedReleases).map((weekGroup, idx) => (
                         <div key={idx}>
-                            <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-3 sticky top-0 bg-[#101010] py-1 z-10">
-                                {month}
+                            <h3 className="text-[10px] font-black text-purple-400 bg-purple-900/10 border border-purple-500/20 px-3 py-1.5 rounded-lg uppercase tracking-widest mb-3 sticky top-0 z-10 w-fit backdrop-blur-md">
+                                {weekGroup}
                             </h3>
                             <div className="space-y-3">
-                                {groupedReleases[month].map((drop, dropIdx) => {
+                                {groupedReleases[weekGroup].map((drop, dropIdx) => {
                                     let day = "TBA";
                                     let shortMonth = "SOON";
                                     
-                                    const parsedDate = new Date(drop.date);
-                                    if (!isNaN(parsedDate)) {
-                                        day = parsedDate.getDate();
-                                        shortMonth = parsedDate.toLocaleString('en-US', { month: 'short' }).toUpperCase();
-                                    } else {
-                                        const match = drop.date.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2})/i);
-                                        if (match) {
-                                            shortMonth = match[1].toUpperCase();
-                                            day = match[2];
-                                        }
+                                    const ts = drop.timestamp || 9999999999999;
+                                    if (ts !== 9999999999999) {
+                                        const d = new Date(ts);
+                                        day = d.getDate();
+                                        shortMonth = d.toLocaleString('en-US', { month: 'short' }).toUpperCase();
                                     }
                                     
-                                    // --- UPDATED COLOR CODING ---
                                     const t = drop.type.toUpperCase();
                                     let badgeColor = 'text-blue-400 bg-blue-400/10 border-blue-400/20'; 
                                     
                                     if (t === 'MAIN RELEASE') {
-                                        badgeColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'; // Green
+                                        badgeColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'; 
                                     } else if (t === 'PRE-ORDER') {
-                                        badgeColor = 'text-purple-400 bg-purple-400/10 border-purple-400/20'; // Purple
+                                        badgeColor = 'text-purple-400 bg-purple-400/10 border-purple-400/20'; 
                                     } else if (t === 'EQL DRAW') {
-                                        badgeColor = 'text-orange-400 bg-orange-400/10 border-orange-400/20'; // Orange
+                                        badgeColor = 'text-orange-400 bg-orange-400/10 border-orange-400/20'; 
                                     }
 
                                     return (
                                         <button 
                                           key={dropIdx} 
-                                          onClick={() => setSelectedRelease(drop)}
+                                          onClick={() => setSelectedRelease(drop)} // You can hook up the Detail Modal later!
                                           className="w-full text-left flex bg-[#151515] border border-white/5 hover:border-white/20 hover:bg-[#1a1a1a] rounded-xl overflow-hidden shadow-sm transition-all active:scale-[0.98]"
                                         >
                                             <div className="w-16 bg-black/40 border-r border-white/5 flex flex-col items-center justify-center shrink-0 py-3 px-1">
