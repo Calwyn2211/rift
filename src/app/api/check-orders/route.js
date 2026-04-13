@@ -23,8 +23,8 @@ export async function GET() {
         await connection.openBox('INBOX');
 
         const delay = 14 * 24 * 3600 * 1000;
-        const searchCriteria = [['SINCE', new Date(Date.now() - delay).toISOString()], ['HEADER', 'SUBJECT', 'Order']];
-        const fetchOptions = { bodies:['HEADER', 'TEXT', ''], markSeen: false }; 
+        const searchCriteria = [['SINCE', new Date(Date.now() - delay).toISOString()],['HEADER', 'SUBJECT', 'Order']];
+        const fetchOptions = { bodies: ['HEADER', 'TEXT', ''], markSeen: false }; 
         const messages = await connection.search(searchCriteria, fetchOptions);
 
         let orderMap = new Map();
@@ -46,7 +46,7 @@ export async function GET() {
                 const isDelivered = subLow.includes('delivered');
                 const isShipping = !isDelivered && (subLow.includes('ship') || subLow.includes('way') || subLow.includes('transit'));
                 const isCancellation =['cancel', 'refund', 'void', 'decline', 'unsuccessful'].some(w => subLow.includes(w));
-                const isConfirmation = ['confirmed', 'thank', '#'].some(w => subLow.includes(w)) && !isShipping && !isDelivered && !isCancellation;
+                const isConfirmation =['confirmed', 'thank', '#'].some(w => subLow.includes(w)) && !isShipping && !isDelivered && !isCancellation;
 
                 if (!isConfirmation && !isShipping && !isCancellation && !isDelivered) continue;
 
@@ -118,7 +118,8 @@ export async function GET() {
                 let existingOrder = orderMap.get(uniqueKey) || {
                     id: orderId, store: storeName, email: buyerEmail, status: 'confirmed', 
                     productName: `${storeName} Drop`, image: null, price: 0, qty: 1, 
-                    card: "Unknown", address: "Unknown", tracking: null, carrier: null, deliveryStatus: 'unfulfilled'
+                    card: "Unknown", address: "Unknown", tracking: null, carrier: null, deliveryStatus: 'unfulfilled',
+                    date: parsed.date // <--- NEW: SAVING THE EXACT EMAIL DATE
                 };
 
                 if (existingOrder.email === 'unknown' && buyerEmail !== 'unknown') existingOrder.email = buyerEmail;
@@ -162,8 +163,6 @@ export async function GET() {
             }
             
             productGroups[key].totalOrders++;
-            
-            // FIX: The scraped price IS the total. We don't multiply it again!
             const spend = order.price; 
 
             if (order.status === 'canceled') {
@@ -172,9 +171,9 @@ export async function GET() {
             } else {
                 productGroups[key].confirmed++; 
                 productGroups[key].totalItems += order.qty; 
-                productGroups[key].totalSpend += spend; // Fixed addition
+                productGroups[key].totalSpend += spend; 
                 
-                globalStats.spend += spend; // Fixed addition
+                globalStats.spend += spend; 
                 globalStats.items += order.qty;
                 globalStats.orders++;
 
@@ -184,7 +183,7 @@ export async function GET() {
             }
 
             if (!productGroups[key].emails[order.email]) { 
-                productGroups[key].emails[order.email] = { email: order.email, count: 0, canceled: 0, latestPrice: 0, latestQty: 0, packages: [] }; 
+                productGroups[key].emails[order.email] = { email: order.email, count: 0, canceled: 0, latestPrice: 0, latestQty: 0, packages:[] }; 
             }
             const emailGroup = productGroups[key].emails[order.email];
             emailGroup.count++;
