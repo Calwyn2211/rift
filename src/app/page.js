@@ -1,16 +1,13 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 // --- FORMAT MONEY WITH SECURE CURRENCY LOGIC ---
 const formatMoney = (amount, currency = 'USD', exchangeRate = 1) => {
   const rate = currency === 'ZAR' ? exchangeRate : 1;
-  const value = (amount || 0) * rate; // Safeguard against NaN
-  
+  const value = (amount || 0) * rate; 
   return new Intl.NumberFormat(currency === 'ZAR' ? 'en-ZA' : 'en-US', { 
-      style: 'currency', 
-      currency: currency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
+      style: 'currency', currency: currency, minimumFractionDigits: 2, maximumFractionDigits: 2
   }).format(value);
 };
 
@@ -59,34 +56,49 @@ const SwipeableRow = ({ children, onAction, text="HIDE", colorClass="bg-red-600 
     </div>
 );
 
+// Chart Tooltip
+const CustomTooltip = ({ active, payload, label, currency, rate }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-[#151515] border border-white/10 p-3 rounded-xl shadow-xl">
+          <p className="text-gray-400 text-[10px] font-bold uppercase mb-2">{label}</p>
+          <p className="text-xs font-bold font-mono text-emerald-400">
+            Total Wealth: {formatMoney(payload[0].value, currency, rate)}
+          </p>
+        </div>
+      );
+    }
+    return null;
+};
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [data, setData] = useState(null);
-  const[calendarData, setCalendarData] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [calendarData, setCalendarData] = useState([]);
+  const[loading, setLoading] = useState(true);
   
   // --- CURRENCY & BANK STATE ---
-  const [currency, setCurrency] = useState('USD');
-  const[exchangeRate, setExchangeRate] = useState(1);
+  const[currency, setCurrency] = useState('USD');
+  const [exchangeRate, setExchangeRate] = useState(1);
   const [liquidCashUSD, setLiquidCashUSD] = useState(0);
+  const [wealthHistory, setWealthHistory] = useState({});
   const [marketValues, setMarketValues] = useState({});
-  const[soldAssets, setSoldAssets] = useState({});
+  
+  // --- SOLD ASSETS STATE ---
+  const [soldAssets, setSoldAssets] = useState({}); 
+  const[sellModalDrop, setSellModalDrop] = useState(null); 
+  const [sellQty, setSellQty] = useState(1);
+  const [sellPrice, setSellPrice] = useState('');
 
   // --- UI STATE ---
   const [selectedDrop, setSelectedDrop] = useState(null);
   const [showCards, setShowCards] = useState(false); 
-  const[showAddresses, setShowAddresses] = useState(false); 
-  const [trackingModal, setTrackingModal] = useState(null);
+  const [showAddresses, setShowAddresses] = useState(false); 
+  const[trackingModal, setTrackingModal] = useState(null);
   const [privacyMode, setPrivacyMode] = useState(false);
   const [search, setSearch] = useState('');
   const [hiddenItems, setHiddenItems] = useState([]);
-  
-  // --- SELL MODAL STATE ---
-  const [sellModalDrop, setSellModalDrop] = useState(null);
-  const[sellQty, setSellQty] = useState(1);
-  const [sellPrice, setSellPrice] = useState('');
 
-  // --- FETCH EXCHANGE RATE & ORDERS ---
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -110,23 +122,22 @@ export default function App() {
     const savedCash = localStorage.getItem('rift_liquid_cash');
     if (savedCash) setLiquidCashUSD(parseFloat(savedCash));
 
-    const savedSold = localStorage.getItem('rift_sold_assets');
-    if (savedSold) setSoldAssets(JSON.parse(savedSold));
+    const savedHistory = localStorage.getItem('rift_wealth_history');
+    if (savedHistory) setWealthHistory(JSON.parse(savedHistory));
 
     const savedCurrency = localStorage.getItem('rift_currency');
     if (savedCurrency) setCurrency(savedCurrency);
 
+    const savedSold = localStorage.getItem('rift_sold_assets');
+    if (savedSold) setSoldAssets(JSON.parse(savedSold));
+
     fetchData();
   },[]);
 
-  // --- DATA INPUT HANDLERS ---
   const handleMarketValueChange = (productName, value) => {
     const newVals = { ...marketValues };
-    if (value === '') { 
-        delete newVals[productName]; 
-    } else { 
-        newVals[productName] = currency === 'ZAR' ? parseFloat(value) / exchangeRate : parseFloat(value); 
-    }
+    if (value === '') { delete newVals[productName]; } 
+    else { newVals[productName] = currency === 'ZAR' ? parseFloat(value) / exchangeRate : parseFloat(value); }
     setMarketValues(newVals);
     localStorage.setItem('rift_market_values', JSON.stringify(newVals));
   };
@@ -205,7 +216,7 @@ export default function App() {
       const mktVal = marketValues[drop.name] || avgCost;
       
       setSellModalDrop(drop);
-      setSellQty(activeQty);
+      setSellQty(activeQty); 
       setSellPrice((mktVal * (currency === 'ZAR' ? exchangeRate : 1)).toFixed(2)); 
   };
 
@@ -216,7 +227,6 @@ export default function App() {
       const unitPriceUSD = currency === 'ZAR' ? unitPriceInput / exchangeRate : unitPriceInput;
       const totalRevenueUSD = unitPriceUSD * sellQty;
 
-      // Update Sold Assets
       const currentSold = soldAssets[sellModalDrop.name] || { qty: 0, revenueUSD: 0 };
       const newSoldAssets = {
           ...soldAssets,
@@ -228,17 +238,16 @@ export default function App() {
       setSoldAssets(newSoldAssets);
       localStorage.setItem('rift_sold_assets', JSON.stringify(newSoldAssets));
 
-      // Inject Revenue into Bank Balance
       const newBalanceUSD = liquidCashUSD + totalRevenueUSD;
       setLiquidCashUSD(newBalanceUSD);
       localStorage.setItem('rift_liquid_cash', newBalanceUSD);
 
-      setSellModalDrop(null);
+      setSellModalDrop(null); 
   };
 
   const filteredDrops = data?.drops?.filter(d => d.name.toLowerCase().includes(search.toLowerCase()) || d.store.toLowerCase().includes(search.toLowerCase())) ||[];
 
-  // --- CALCULATE P&L GLOBALS ---
+  // --- ADVANCED P&L CALCULATIONS ---
   let activeCostBasis = 0;
   let activeMarketValue = 0;
   let realizedProfit = 0;
@@ -260,6 +269,40 @@ export default function App() {
   
   let unrealizedProfit = activeMarketValue - activeCostBasis;
   let totalProjectedWealthUSD = liquidCashUSD + activeMarketValue;
+
+  useEffect(() => {
+      if (totalProjectedWealthUSD === 0 || loading) return;
+      const today = new Date().toISOString().split('T')[0];
+      const newHistory = { ...wealthHistory };
+      newHistory[today] = totalProjectedWealthUSD;
+      setWealthHistory(newHistory);
+      localStorage.setItem('rift_wealth_history', JSON.stringify(newHistory));
+  }, [totalProjectedWealthUSD, loading]);
+
+  const historyDates = Object.keys(wealthHistory).sort();
+  let sevenDaysAgoVal = totalProjectedWealthUSD; 
+  let growthDelta = 0;
+  let growthPct = 0;
+
+  if (historyDates.length > 0) {
+      const targetDate = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString().split('T')[0];
+      const pastDates = historyDates.filter(d => d <= targetDate);
+      if (pastDates.length > 0) {
+          sevenDaysAgoVal = wealthHistory[pastDates[pastDates.length - 1]];
+      } else {
+          sevenDaysAgoVal = wealthHistory[historyDates[0]]; 
+      }
+      growthDelta = totalProjectedWealthUSD - sevenDaysAgoVal;
+      growthPct = sevenDaysAgoVal > 0 ? (growthDelta / sevenDaysAgoVal) * 100 : 0;
+  }
+
+  const chartData = historyDates.map(dateStr => {
+      const dateObj = new Date(dateStr);
+      return {
+          date: dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          Balance: wealthHistory[dateStr] 
+      };
+  });
 
   const lockedCap = data?.globalStats?.lockedCapital || 0;
   const floatingCap = data?.globalStats?.floatingCapital || 0;
@@ -289,7 +332,10 @@ export default function App() {
           <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center bg-black/90 backdrop-blur-md p-4 transition-all">
               <div className="bg-[#101010] w-full max-w-sm rounded-3xl border border-white/10 overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-200">
                   <div className="p-5 border-b border-white/5 flex justify-between items-center bg-[#151515]">
-                      <h2 className="text-sm font-black text-emerald-400 uppercase tracking-widest">Liquidate Asset</h2>
+                      <div className="flex items-center space-x-2 text-emerald-400">
+                          <SellIcon />
+                          <h2 className="text-sm font-black uppercase tracking-widest">Liquidate Asset</h2>
+                      </div>
                       <button onClick={() => setSellModalDrop(null)} className="text-gray-500 hover:text-white text-xs font-bold">CANCEL</button>
                   </div>
                   <div className="p-6">
@@ -305,7 +351,7 @@ export default function App() {
                               <span className="text-sm font-bold text-gray-300">Sale Price (Per Unit)</span>
                               <div className="flex items-center space-x-1 bg-[#1a1a1a] border border-white/10 rounded-lg px-3 py-2 focus-within:border-emerald-500/50">
                                   <span className="text-gray-500 font-mono text-sm">{currency === 'ZAR' ? 'R' : '$'}</span>
-                                  <input type="number" value={sellPrice} onChange={(e) => setSellPrice(e.target.value)} placeholder="0.00" className="bg-transparent text-white font-mono text-right w-16 focus:outline-none" />
+                                  <input type="number" value={sellPrice} onChange={(e) => setSellPrice(e.target.value)} placeholder="0.00" className="bg-transparent text-white font-mono text-right w-20 focus:outline-none" />
                               </div>
                           </div>
                       </div>
@@ -328,8 +374,11 @@ export default function App() {
     if (!trackingModal) return null;
     return (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/90 backdrop-blur-md p-4 transition-all">
-            <div className="bg-[#101010] w-full max-w-sm rounded-3xl border border-white/10 overflow-hidden shadow-2xl">
-                <div className="p-5 border-b border-white/5 flex justify-between items-center bg-[#151515]"><h2 className="text-sm font-black text-white uppercase tracking-widest">Shipment Status</h2><button onClick={() => setTrackingModal(null)} className="text-gray-500 hover:text-white text-xs font-bold">CLOSE</button></div>
+            <div className="bg-[#101010] w-full max-w-sm rounded-3xl border border-white/10 overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-200">
+                <div className="p-5 border-b border-white/5 flex justify-between items-center bg-[#151515]">
+                    <h2 className="text-sm font-black text-white uppercase tracking-widest">Shipment Status</h2>
+                    <button onClick={() => setTrackingModal(null)} className="text-gray-500 hover:text-white text-xs font-bold">CLOSE</button>
+                </div>
                 <div className="p-6 max-h-[60vh] overflow-y-auto">
                     {trackingModal.map((pkg, i) => {
                         const steps =['unfulfilled', 'shipped', 'delivered'];
@@ -337,12 +386,56 @@ export default function App() {
                         const Check = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 text-black"><path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" /></svg>;
                         return (
                             <div key={i} className="mb-8 last:mb-0">
-                                <div className="flex justify-between items-center mb-6"><span className="text-[10px] font-bold bg-gray-800 text-gray-300 px-2 py-1 rounded tracking-wider">#{pkg.id}</span></div>
-                                <div className="flex flex-col">
-                                    <div className="flex gap-4"><div className="flex flex-col items-center relative"><div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center z-10 shrink-0"><Check /></div><div className={`w-0.5 h-full absolute top-5 ${currentIdx >= 1 ? 'bg-emerald-500' : 'bg-gray-800'}`}></div></div><div className="pb-8"><p className="text-sm font-bold text-white leading-none">Order Confirmed</p></div></div>
-                                    <div className="flex gap-4"><div className="flex flex-col items-center relative"><div className={`w-5 h-5 rounded-full flex items-center justify-center z-10 shrink-0 border-2 ${currentIdx >= 1 ? 'bg-blue-500 border-blue-500' : 'bg-[#101010] border-gray-700'}`}>{currentIdx >= 1 && <Check />}</div><div className={`w-0.5 h-full absolute top-5 ${currentIdx >= 2 ? 'bg-yellow-500' : 'bg-gray-800'}`}></div></div><div className="pb-8"><p className={`text-sm font-bold leading-none ${currentIdx >= 1 ? 'text-white' : 'text-gray-600'}`}>Shipped</p>{currentIdx >= 1 ? <div className="mt-1"><p className="text-[10px] text-blue-400 font-mono">{pkg.carrier}</p><p className="text-[10px] text-gray-500 font-mono">{pkg.tracking}</p></div> : null}</div></div>
-                                    <div className="flex gap-4"><div className="flex flex-col items-center relative"><div className={`w-5 h-5 rounded-full flex items-center justify-center z-10 shrink-0 border-2 ${currentIdx >= 2 ? 'bg-yellow-500 border-yellow-500' : 'bg-[#101010] border-gray-700'}`}>{currentIdx >= 2 && <Check />}</div></div><div><p className={`text-sm font-bold leading-none ${currentIdx >= 2 ? 'text-white' : 'text-gray-600'}`}>Delivered</p></div></div>
+                                <div className="flex justify-between items-center mb-6">
+                                    <span className="text-[10px] font-bold bg-gray-800 text-gray-300 px-2 py-1 rounded tracking-wider">#{pkg.id}</span>
                                 </div>
+                                <div className="flex flex-col">
+                                    <div className="flex gap-4">
+                                        <div className="flex flex-col items-center relative">
+                                            <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center z-10 shrink-0"><Check /></div>
+                                            <div className={`w-0.5 h-full absolute top-5 ${currentIdx >= 1 ? 'bg-emerald-500' : 'bg-gray-800'}`}></div>
+                                        </div>
+                                        <div className="pb-8">
+                                            <p className="text-sm font-bold text-white leading-none">Order Confirmed</p>
+                                            <p className="text-[10px] text-gray-500 mt-1">Order processed successfully</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-4">
+                                        <div className="flex flex-col items-center relative">
+                                            <div className={`w-5 h-5 rounded-full flex items-center justify-center z-10 shrink-0 border-2 ${currentIdx >= 1 ? 'bg-blue-500 border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]' : 'bg-[#101010] border-gray-700'}`}>
+                                                {currentIdx >= 1 && <Check />}
+                                            </div>
+                                            <div className={`w-0.5 h-full absolute top-5 ${currentIdx >= 2 ? 'bg-yellow-500' : 'bg-gray-800'}`}></div>
+                                        </div>
+                                        <div className="pb-8">
+                                            <p className={`text-sm font-bold leading-none ${currentIdx >= 1 ? 'text-white' : 'text-gray-600'}`}>Shipped</p>
+                                            {currentIdx >= 1 ? (
+                                                <div className="mt-1">
+                                                    <p className="text-[10px] text-blue-400 font-mono">{pkg.carrier}</p>
+                                                    <p className="text-[10px] text-gray-500 font-mono tracking-wide">{pkg.tracking}</p>
+                                                </div>
+                                            ) : <p className="text-[10px] text-gray-600 mt-1">Pending shipment</p>}
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-4">
+                                        <div className="flex flex-col items-center relative">
+                                            <div className={`w-5 h-5 rounded-full flex items-center justify-center z-10 shrink-0 border-2 ${currentIdx >= 2 ? 'bg-yellow-500 border-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]' : 'bg-[#101010] border-gray-700'}`}>
+                                                {currentIdx >= 2 && <Check />}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <p className={`text-sm font-bold leading-none ${currentIdx >= 2 ? 'text-white' : 'text-gray-600'}`}>Delivered</p>
+                                            <p className={`text-[10px] mt-1 ${currentIdx >= 2 ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                {currentIdx >= 2 ? 'Package arrived' : 'Waiting for delivery'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                {pkg.tracking && (
+                                    <a href={`https://t.17track.net/en#nums=${pkg.tracking}`} target="_blank" className="mt-6 block w-full text-center bg-white/5 hover:bg-white/10 text-white text-xs font-bold py-3 rounded-xl transition-colors border border-white/5 flex items-center justify-center space-x-2">
+                                        <span>TRACK LIVE</span>
+                                    </a>
+                                )}
                             </div>
                         );
                     })}
@@ -355,17 +448,31 @@ export default function App() {
   const RiskModal = ({ title, type, items, Icon, onClose }) => (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md p-4 transition-all">
         <div className="bg-[#101010] w-full max-w-sm rounded-3xl border border-white/10 overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-200">
-            <div className="p-5 border-b border-white/5 flex justify-between items-center bg-[#151515]"><div className="flex items-center space-x-3"><Icon className={`w-5 h-5 ${type === 'card' ? 'text-yellow-500' : 'text-blue-500'}`} /><h2 className="text-sm font-black text-white uppercase tracking-widest">{title}</h2></div><button onClick={onClose} className="text-gray-500 hover:text-white text-xs font-bold">CLOSE</button></div>
+            <div className="p-5 border-b border-white/5 flex justify-between items-center bg-[#151515]">
+                <div className="flex items-center space-x-3">
+                    <Icon className={`w-5 h-5 ${type === 'card' ? 'text-yellow-500' : 'text-blue-500'}`} />
+                    <h2 className="text-sm font-black text-white uppercase tracking-widest">{title}</h2>
+                </div>
+                <button onClick={onClose} className="text-gray-500 hover:text-white text-xs font-bold">CLOSE</button>
+            </div>
             <div className="p-4 max-h-[60vh] overflow-y-auto space-y-2">
+                {items?.length === 0 && <div className="text-center py-8"><p className="text-gray-600 text-xs">No data collected yet.</p></div>}
                 {items?.map((item, i) => {
                     const total = item.total; const canceled = item.canceled; const rate = (canceled / total) * 100;
                     let color = "text-emerald-500"; let bg = "bg-emerald-500/10 border-emerald-500/20";
                     if (rate > 50) { color = "text-red-500"; bg = "bg-red-500/10 border-red-500/20"; } else if (rate > 0) { color = "text-orange-500"; bg = "bg-orange-500/10 border-orange-500/20"; }
                     const label = type === 'card' ? (item.last4 === 'PayPal' ? 'PayPal' : `Ending in ${item.last4}`) : item.address.split(',')[0];
+                    const subLabel = type === 'card' ? `${total} transactions` : item.address;
                     return (
                         <div key={i} className="flex justify-between items-start p-3 rounded-xl border border-white/5 bg-[#151515]">
-                            <div className="flex-1 min-w-0 mr-4"><p className="text-sm font-bold text-gray-200 truncate">{label}</p></div>
-                            <div className="text-right flex flex-col items-end space-y-1"><span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${bg} ${color}`}>{rate.toFixed(0)}% Fail</span></div>
+                            <div className="flex-1 min-w-0 mr-4">
+                                <p className="text-sm font-bold text-gray-200 truncate">{label}</p>
+                                <p className="text-[10px] text-gray-500 truncate leading-relaxed">{subLabel}</p>
+                            </div>
+                            <div className="text-right flex flex-col items-end space-y-1">
+                                <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${bg} ${color}`}>{rate.toFixed(0)}% Fail</span>
+                                <p className="text-[10px] text-gray-600 font-mono">{canceled}/{total} Void</p>
+                            </div>
                         </div>
                     );
                 })}
@@ -381,10 +488,15 @@ export default function App() {
     
     const soldData = soldAssets[selectedDrop.name] || { qty: 0, revenueUSD: 0 };
     const activeQty = selectedDrop.totalItems - soldData.qty;
+    const isFullySold = activeQty <= 0;
     
     const projectedRevenue = currentMarketValue * activeQty;
     const projectedProfit = projectedRevenue - (avgUnitCost * activeQty);
     const profitColor = projectedProfit >= 0 ? 'text-emerald-400' : 'text-red-400';
+
+    const realizedRevenue = soldData.revenueUSD;
+    const realizedProfitPartial = realizedRevenue - (avgUnitCost * soldData.qty);
+    const totalExpectedProfit = projectedProfit + realizedProfitPartial;
 
     return (
       <div className="min-h-screen bg-[#0a0a0a] text-white font-sans relative">
@@ -399,43 +511,100 @@ export default function App() {
 
         <div className="max-w-md mx-auto p-4 pb-24">
           <div className="flex flex-col items-center mb-6 mt-2">
-              <div className="w-28 h-28 bg-gray-800 rounded-3xl overflow-hidden border border-white/10 shadow-2xl mb-4">
+              <div className="w-28 h-28 bg-gray-800 rounded-3xl overflow-hidden border border-white/10 shadow-2xl mb-4 relative">
                   {selectedDrop.image ? <img src={selectedDrop.image} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-3xl">📦</div>}
               </div>
               <h1 className="text-xl font-bold text-center leading-tight mb-2 px-4">{selectedDrop.name}</h1>
-              <div className="flex items-center space-x-2 bg-white/5 px-3 py-1.5 rounded-full">
+              <div className="flex items-center space-x-2 bg-white/5 px-3 py-1.5 rounded-full mb-3">
                   <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">{selectedDrop.store}</span>
               </div>
+              <div className="flex space-x-4 mb-2">
+                   <span className="text-xs font-bold text-emerald-500 bg-emerald-900/20 px-2 py-1 rounded">{selectedDrop.confirmed} Confirmed</span>
+                   {selectedDrop.canceled > 0 && <span className="text-xs font-bold text-red-500 bg-red-900/20 px-2 py-1 rounded">{selectedDrop.canceled} Canceled</span>}
+              </div>
           </div>
 
-          <div className="bg-gradient-to-b from-[#151515] to-[#101010] rounded-2xl p-5 border border-white/5 mb-8 shadow-xl">
-              <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center space-x-2"><ChartIcon className="w-3 h-3" /> <span>Active Inventory Valuation</span></h3>
-                  <span className="text-[10px] font-bold text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full">{activeQty} Items Left</span>
-              </div>
-              
-              <div className="flex justify-between items-center px-1 mb-2">
-                  <span className="text-[10px] text-gray-500 font-bold uppercase">Unit Cost (Scraped)</span>
-                  <span className="text-sm font-bold text-gray-300 font-mono">{formatMoney(avgUnitCost, currency, exchangeRate)}</span>
-              </div>
+          {!isFullySold && (
+              <div className="bg-gradient-to-b from-[#151515] to-[#101010] rounded-2xl p-5 border border-white/5 mb-8 shadow-xl">
+                  <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center space-x-2"><ChartIcon className="w-3 h-3" /> <span>Active Inventory Valuation</span></h3>
+                      <span className="text-[10px] font-bold text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full">{activeQty} Items Active</span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center px-1 mb-2">
+                      <span className="text-[10px] text-gray-500 font-bold uppercase">Unit Cost (Scraped)</span>
+                      <span className="text-sm font-bold text-gray-300 font-mono">{formatMoney(avgUnitCost, currency, exchangeRate)}</span>
+                  </div>
 
-              <div className="flex items-center justify-between bg-black/40 p-3 rounded-xl border border-white/5 mb-4">
-                  <span className="text-xs font-bold text-gray-300">Unit Resell Value</span>
-                  <div className="flex items-center space-x-1 bg-[#1a1a1a] border border-white/10 rounded-lg px-3 py-2 focus-within:border-emerald-500/50 transition-colors">
-                      <span className="text-gray-500 font-mono text-sm">{currency === 'ZAR' ? 'R' : '$'}</span>
-                      <input type="number" value={marketValues[selectedDrop.name] !== undefined ? (marketValues[selectedDrop.name] * (currency === 'ZAR' ? exchangeRate : 1)).toFixed(2) : ''} onChange={(e) => { const val = parseFloat(e.target.value); if (isNaN(val)) handleMarketValueChange(selectedDrop.name, ''); else handleMarketValueChange(selectedDrop.name, currency === 'ZAR' ? val / exchangeRate : val); }} placeholder="0.00" className="bg-transparent text-white font-mono text-right w-16 focus:outline-none placeholder-gray-700 text-sm" />
+                  <div className="flex items-center justify-between bg-black/40 p-3 rounded-xl border border-white/5 mb-4">
+                      <span className="text-xs font-bold text-gray-300">Unit Resell Value</span>
+                      <div className="flex items-center space-x-1 bg-[#1a1a1a] border border-white/10 rounded-lg px-3 py-2 focus-within:border-emerald-500/50 transition-colors">
+                          <span className="text-gray-500 font-mono text-sm">{currency === 'ZAR' ? 'R' : '$'}</span>
+                          <input type="number" value={marketValues[selectedDrop.name] !== undefined ? (marketValues[selectedDrop.name] * (currency === 'ZAR' ? exchangeRate : 1)).toFixed(2) : ''} onChange={(e) => { const val = parseFloat(e.target.value); if (isNaN(val)) handleMarketValueChange(selectedDrop.name, ''); else handleMarketValueChange(selectedDrop.name, currency === 'ZAR' ? val / exchangeRate : val); }} placeholder="0.00" className="bg-transparent text-white font-mono text-right w-16 focus:outline-none placeholder-gray-700 text-sm" />
+                      </div>
+                  </div>
+                  
+                  <div className="flex justify-between items-center px-1 mb-2 mt-4 pt-4 border-t border-white/5">
+                      <span className="text-[10px] text-gray-500 font-bold uppercase">Total Spend (All items)</span>
+                      <span className="text-sm font-bold text-gray-400 font-mono">{formatMoney(selectedDrop.totalSpend, currency, exchangeRate)}</span>
+                  </div>
+                  
+                  {soldData.qty > 0 && (
+                    <div className="flex justify-between items-center px-1 mb-2">
+                        <span className="text-[10px] text-emerald-500 font-bold uppercase">Realized Revenue ({soldData.qty} sold)</span>
+                        <span className="text-sm font-bold text-emerald-400 font-mono">+{formatMoney(soldData.revenueUSD, currency, exchangeRate)}</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-center px-1 mb-2">
+                      <span className="text-[10px] text-gray-400 font-bold uppercase">Proj. Revenue ({activeQty} active)</span>
+                      <span className="text-sm font-bold text-white font-mono">{formatMoney(projectedRevenue, currency, exchangeRate)}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center px-1 pt-2 mt-2">
+                      <span className="text-[10px] text-gray-400 font-bold uppercase">Est. Total Net Profit</span>
+                      <span className={`text-base font-black font-mono ${totalExpectedProfit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {totalExpectedProfit >= 0 ? '+' : ''}{formatMoney(totalExpectedProfit, currency, exchangeRate)}
+                      </span>
                   </div>
               </div>
-              
-              <div className="flex justify-between items-center px-1 mb-2 mt-4 pt-4 border-t border-white/5">
-                  <span className="text-[10px] text-gray-500 font-bold uppercase">Proj. Revenue ({activeQty} items)</span>
-                  <span className="text-sm font-bold text-white font-mono">{formatMoney(projectedRevenue, currency, exchangeRate)}</span>
+          )}
+
+          {isFullySold && (
+              <div className="bg-gradient-to-b from-[#0a1a10] to-[#101010] rounded-2xl p-5 border border-emerald-500/20 mb-8 shadow-[0_0_20px_rgba(16,185,129,0.1)]">
+                  <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center space-x-2"><ChartIcon className="w-3 h-3" /> <span>Realized Valuation (Sold)</span></h3>
+                      <span className="text-[10px] font-bold text-emerald-500 bg-emerald-900/20 px-2 py-0.5 rounded-full border border-emerald-500/20">Asset Liquidated</span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center px-1 mb-2">
+                      <span className="text-[10px] text-gray-500 font-bold uppercase">Unit Cost (Scraped)</span>
+                      <span className="text-sm font-bold text-gray-300 font-mono">{formatMoney(avgUnitCost, currency, exchangeRate)}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between bg-emerald-900/10 p-3 rounded-xl border border-emerald-500/20 mb-4">
+                      <span className="text-xs font-bold text-emerald-400">Unit Sold Price (Avg)</span>
+                      <span className="text-sm font-bold text-emerald-400 font-mono">{formatMoney(soldData.revenueUSD / soldData.qty, currency, exchangeRate)}</span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center px-1 mb-2 mt-4 pt-4 border-t border-white/5">
+                      <span className="text-[10px] text-gray-500 font-bold uppercase">Total Spend</span>
+                      <span className="text-sm font-bold text-gray-400 font-mono">{formatMoney(selectedDrop.totalSpend, currency, exchangeRate)}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center px-1 mb-2">
+                      <span className="text-[10px] text-emerald-500 font-bold uppercase">Total Revenue ({soldData.qty} sold)</span>
+                      <span className="text-sm font-bold text-white font-mono">{formatMoney(soldData.revenueUSD, currency, exchangeRate)}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center px-1 pt-2 mt-2">
+                      <span className="text-[10px] text-emerald-400 font-bold uppercase">Final Net Profit</span>
+                      <span className={`text-base font-black font-mono ${realizedProfitPartial >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {realizedProfitPartial >= 0 ? '+' : ''}{formatMoney(realizedProfitPartial, currency, exchangeRate)}
+                      </span>
+                  </div>
               </div>
-              <div className="flex justify-between items-center px-1 pt-2 mt-2">
-                  <span className="text-[10px] text-gray-400 font-bold uppercase">Est. Unrealized Profit</span>
-                  <span className={`text-base font-black font-mono ${profitColor}`}>{projectedProfit >= 0 ? '+' : ''}{formatMoney(projectedProfit, currency, exchangeRate)}</span>
-              </div>
-          </div>
+          )}
           
           <div className="flex justify-between items-end mb-3 px-1 border-b border-white/10 pb-2">
               <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Email Receipts</h2>
@@ -444,6 +613,7 @@ export default function App() {
                       <DocumentIcon className="w-3 h-3" /><span>Export receiving txt</span>
                   </button>
                   <button onClick={() => setPrivacyMode(!privacyMode)} className="text-[9px] text-gray-500 hover:text-white uppercase transition-colors font-bold flex items-center space-x-1">
+                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>
                      <span>{privacyMode ? "Show Emails" : "Hide Emails"}</span>
                   </button>
               </div>
@@ -455,9 +625,8 @@ export default function App() {
                const confirmedCount = item.count - item.canceled;
                const unitPrice = item.latestQty > 0 ? item.latestPrice / item.latestQty : item.latestPrice;
 
-               return (
-                <SwipeableRow key={i} onHide={() => setHiddenItems([...hiddenItems, item.email])}>
-                  <div className="bg-[#151515] border border-white/5 rounded-xl p-4 flex justify-between items-center w-full h-full">
+               const InnerCard = (
+                  <div className="bg-[#151515] border border-white/5 rounded-xl p-4 flex justify-between items-center w-full h-full shadow-lg">
                     <div className="flex flex-col min-w-0 mr-4">
                       <span className="text-sm font-mono text-gray-300 truncate mb-1">{maskEmail(item.email)}</span>
                       <div className="flex flex-col space-y-1">
@@ -478,10 +647,16 @@ export default function App() {
                       <div className="font-bold text-yellow-500 text-sm">{item.count} Order{item.count > 1 ? 's' : ''}</div>
                       <div className="text-[10px] font-bold mt-1 flex space-x-1">
                           {confirmedCount > 0 && <span className="text-emerald-500">{confirmedCount} Confirmed</span>}
+                          {confirmedCount > 0 && item.canceled > 0 && <span className="text-gray-700">•</span>}
                           {item.canceled > 0 && <span className="text-red-500">{item.canceled} Canceled</span>}
                       </div>
                     </div>
                   </div>
+               );
+
+               return (
+                <SwipeableRow key={i} onAction={() => setHiddenItems([...hiddenItems, item.email])} text="HIDE" colorClass="bg-red-600 border-red-600">
+                  {InnerCard}
                 </SwipeableRow>
                );
             })}
@@ -491,7 +666,7 @@ export default function App() {
     );
   }
 
-  // --- MAIN LAYOUT RENDER ---
+  // --- MAIN LAYOUT RENDER (Tabs) ---
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white font-sans pb-24 relative">
       <SellModal />
@@ -554,23 +729,30 @@ export default function App() {
                 <div className="space-y-4">
                   {filteredDrops.length === 0 && <div className="text-center text-gray-600 text-xs py-10">No drops found.</div>}
                   {filteredDrops.map((drop, i) => {
-                    // Hide if all items are sold out
                     const soldData = soldAssets[drop.name] || { qty: 0 };
-                    if (drop.totalItems - soldData.qty <= 0) return null;
+                    const activeQty = drop.totalItems - soldData.qty;
+                    const isFullySold = activeQty <= 0;
 
                     return (
                     <div key={i} onClick={() => setSelectedDrop(drop)} className="group relative bg-[#151515] border border-white/5 rounded-2xl p-4 active:scale-[0.98] transition-all cursor-pointer hover:border-white/10 shadow-lg">
                       <div className="flex items-start">
                         <div className="w-16 h-16 bg-gray-800 rounded-lg mr-4 flex-shrink-0 overflow-hidden border border-white/5 relative">
                           {drop.image ? <img src={drop.image} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-xl grayscale opacity-50">📦</div>}
-                          <div className="absolute bottom-0 right-0 bg-black/60 backdrop-blur text-white text-[9px] px-1.5 py-0.5 rounded-tl-md font-bold">x{drop.totalItems - soldData.qty}</div>
+                          {!isFullySold && (
+                              <div className="absolute bottom-0 right-0 bg-black/60 backdrop-blur text-white text-[9px] px-1.5 py-0.5 rounded-tl-md font-bold">x{activeQty}</div>
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-start">
                               <h3 className="font-bold text-sm text-gray-200 leading-tight truncate pr-2">{drop.name}</h3>
                               <span className="text-emerald-400 text-xs font-bold whitespace-nowrap">{formatMoney(drop.totalSpend, currency, exchangeRate)}</span>
                           </div>
-                          <p className="text-[10px] text-gray-500 uppercase font-bold mt-1 tracking-wide">{drop.store}</p>
+                          
+                          <div className="flex items-center space-x-2 mt-1">
+                              <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wide">{drop.store}</p>
+                              {isFullySold && <span className="text-[8px] bg-emerald-900/30 text-emerald-500 px-1.5 rounded font-bold uppercase">SOLD OUT</span>}
+                          </div>
+                          
                           <div className="flex h-1.5 w-full bg-gray-800 rounded-full overflow-hidden mt-3">
                               <div className="h-full bg-emerald-500" style={{ width: `${(drop.confirmed / drop.totalOrders) * 100}%` }}></div>
                               <div className="h-full bg-red-500" style={{ width: `${(drop.canceled / drop.totalOrders) * 100}%` }}></div>
@@ -594,7 +776,7 @@ export default function App() {
                       <h2 className="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center"><ChartIcon className="w-3 h-3 mr-2" /> Financial Dashboard</h2>
                   </div>
 
-                  {/* BANK BALANCE & WEALTH HISTORY */}
+                  {/* BANK BALANCE */}
                   <div className="bg-gradient-to-b from-[#151515] to-[#101010] border border-white/5 rounded-3xl p-6 shadow-2xl mb-6 relative overflow-hidden">
                       <div className="relative z-10">
                           <div className="flex justify-between items-end mb-1">
@@ -623,7 +805,7 @@ export default function App() {
                       </div>
                   </div>
                   
-                  {/* REALIZED PROFIT METRIC */}
+                  {/* REALIZED VS UNREALIZED PROFIT */}
                   <div className="grid grid-cols-2 gap-3 mb-6">
                       <div className="bg-[#151515] p-4 rounded-2xl border border-white/5 flex flex-col shadow-lg">
                           <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1 flex items-center space-x-1"><span className="text-emerald-500">●</span><span>Realized Profit</span></p>
@@ -649,6 +831,7 @@ export default function App() {
                       {data?.drops?.map((drop, i) => {
                           const soldData = soldAssets[drop.name] || { qty: 0 };
                           const activeQty = drop.totalItems - soldData.qty;
+                          
                           if (activeQty <= 0) return null; 
 
                           const unitCost = drop.totalItems > 0 ? drop.totalSpend / drop.totalItems : 0;
@@ -657,8 +840,8 @@ export default function App() {
                           const profit = rev - (unitCost * activeQty);
 
                           return (
-                              <SwipeableRow key={i} onHide={() => openSellModal(drop)} text="SELL" colorClass="bg-emerald-600 border-emerald-600" Icon={<SellIcon />}>
-                                  <div className="bg-[#151515] border border-white/5 rounded-xl p-4 flex items-center justify-between w-full h-full shadow-lg">
+                              <SwipeableRow key={i} onAction={() => openSellModal(drop)} text="SELL" colorClass="bg-emerald-600 border-emerald-600" Icon={<SellIcon />}>
+                                  <div onClick={() => { setActiveTab('home'); setSelectedDrop(drop); }} className="bg-[#151515] border border-white/5 rounded-xl p-4 flex items-center justify-between w-full h-full shadow-lg cursor-pointer">
                                       <div className="flex items-center space-x-3 min-w-0 flex-1 mr-4">
                                           <div className="w-10 h-10 bg-gray-800 rounded-lg overflow-hidden shrink-0 border border-white/5">
                                               {drop.image ? <img src={drop.image} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-xs">📦</div>}
