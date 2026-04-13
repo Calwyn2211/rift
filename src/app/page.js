@@ -1,13 +1,16 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
-import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { useState, useEffect } from 'react';
 
 // --- FORMAT MONEY WITH SECURE CURRENCY LOGIC ---
 const formatMoney = (amount, currency = 'USD', exchangeRate = 1) => {
   const rate = currency === 'ZAR' ? exchangeRate : 1;
-  const value = amount * rate;
+  const value = (amount || 0) * rate; // Safeguard against NaN
+  
   return new Intl.NumberFormat(currency === 'ZAR' ? 'en-ZA' : 'en-US', { 
-      style: 'currency', currency: currency, minimumFractionDigits: 2, maximumFractionDigits: 2
+      style: 'currency', 
+      currency: currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
   }).format(value);
 };
 
@@ -42,13 +45,12 @@ const DashboardSkeleton = () => (
   </div>
 );
 
-// Updated to support custom colors/icons for Sell vs Hide
 const SwipeableRow = ({ children, onAction, text="HIDE", colorClass="bg-red-600 border-red-600", Icon }) => (
     <div className="relative w-full overflow-hidden rounded-xl h-[88px] shadow-lg">
       <div className="w-full h-full flex overflow-x-auto snap-x snap-mandatory scrollbar-hide">
         <div className="w-full flex-shrink-0 snap-center">{children}</div>
-        <button onClick={onAction} className={`w-20 flex-shrink-0 snap-center flex flex-col items-center justify-center text-white border-y border-r rounded-r-xl ${colorClass}`}>
-          {Icon || (
+        <button onClick={onAction} className={`w-20 flex-shrink-0 snap-center flex flex-col items-center justify-center text-white border-y border-r rounded-r-xl transition-colors ${colorClass}`}>
+          {Icon ? Icon : (
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 mb-1"><path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>
           )}
           <span className="text-[10px] font-bold">{text}</span>
@@ -57,48 +59,34 @@ const SwipeableRow = ({ children, onAction, text="HIDE", colorClass="bg-red-600 
     </div>
 );
 
-// Chart Tooltip
-const CustomTooltip = ({ active, payload, label, currency, rate }) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-[#151515] border border-white/10 p-3 rounded-xl shadow-xl">
-          <p className="text-gray-400 text-[10px] font-bold uppercase mb-2">{label}</p>
-          <p className="text-xs font-bold font-mono text-emerald-400">
-            Total Wealth: {formatMoney(payload[0].value, currency, rate)}
-          </p>
-        </div>
-      );
-    }
-    return null;
-};
-
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [data, setData] = useState(null);
-  const [calendarData, setCalendarData] = useState([]);
+  const[calendarData, setCalendarData] = useState([]);
   const [loading, setLoading] = useState(true);
   
   // --- CURRENCY & BANK STATE ---
   const [currency, setCurrency] = useState('USD');
   const[exchangeRate, setExchangeRate] = useState(1);
   const [liquidCashUSD, setLiquidCashUSD] = useState(0);
-  const [wealthHistory, setWealthHistory] = useState({});
-  const[marketValues, setMarketValues] = useState({});
-  
-  // --- NEW: SOLD ASSETS STATE ---
-  const[soldAssets, setSoldAssets] = useState({}); // { "ProductName": { qty: 2, revenueUSD: 1000 } }
-  const [sellModalDrop, setSellModalDrop] = useState(null); // Holds drop data when selling
-  const[sellQty, setSellQty] = useState(1);
-  const [sellPrice, setSellPrice] = useState('');
+  const [marketValues, setMarketValues] = useState({});
+  const[soldAssets, setSoldAssets] = useState({});
 
-  const[selectedDrop, setSelectedDrop] = useState(null);
+  // --- UI STATE ---
+  const [selectedDrop, setSelectedDrop] = useState(null);
   const [showCards, setShowCards] = useState(false); 
-  const [showAddresses, setShowAddresses] = useState(false); 
-  const[trackingModal, setTrackingModal] = useState(null);
+  const[showAddresses, setShowAddresses] = useState(false); 
+  const [trackingModal, setTrackingModal] = useState(null);
   const [privacyMode, setPrivacyMode] = useState(false);
   const [search, setSearch] = useState('');
   const [hiddenItems, setHiddenItems] = useState([]);
+  
+  // --- SELL MODAL STATE ---
+  const [sellModalDrop, setSellModalDrop] = useState(null);
+  const[sellQty, setSellQty] = useState(1);
+  const [sellPrice, setSellPrice] = useState('');
 
+  // --- FETCH EXCHANGE RATE & ORDERS ---
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -122,22 +110,23 @@ export default function App() {
     const savedCash = localStorage.getItem('rift_liquid_cash');
     if (savedCash) setLiquidCashUSD(parseFloat(savedCash));
 
-    const savedHistory = localStorage.getItem('rift_wealth_history');
-    if (savedHistory) setWealthHistory(JSON.parse(savedHistory));
+    const savedSold = localStorage.getItem('rift_sold_assets');
+    if (savedSold) setSoldAssets(JSON.parse(savedSold));
 
     const savedCurrency = localStorage.getItem('rift_currency');
     if (savedCurrency) setCurrency(savedCurrency);
 
-    const savedSold = localStorage.getItem('rift_sold_assets');
-    if (savedSold) setSoldAssets(JSON.parse(savedSold));
-
     fetchData();
   },[]);
 
+  // --- DATA INPUT HANDLERS ---
   const handleMarketValueChange = (productName, value) => {
     const newVals = { ...marketValues };
-    if (value === '') delete newVals[productName]; 
-    else newVals[productName] = currency === 'ZAR' ? parseFloat(value) / exchangeRate : parseFloat(value); 
+    if (value === '') { 
+        delete newVals[productName]; 
+    } else { 
+        newVals[productName] = currency === 'ZAR' ? parseFloat(value) / exchangeRate : parseFloat(value); 
+    }
     setMarketValues(newVals);
     localStorage.setItem('rift_market_values', JSON.stringify(newVals));
   };
@@ -184,18 +173,40 @@ export default function App() {
     document.body.removeChild(link);
   };
 
+  const handleEmployeeExport = () => {
+    if (!selectedDrop) return;
+    let content = `RIFT INBOUND MANIFEST - ${new Date().toLocaleDateString()}\n================================================\n\n`;
+    let totalPackages = 0;
+    selectedDrop.breakdown.forEach(item => {
+        const confirmedCount = item.count - item.canceled;
+        if (confirmedCount <= 0) return;
+        const trackingList = item.packages ||[];
+        if (trackingList.length > 0) {
+            trackingList.forEach(t => { content += `${selectedDrop.name} - Qty ${item.latestQty} - Status: ${t.status} - ${t.tracking || 'No Tracking'} - ${t.carrier || 'Unknown'}\n`; totalPackages++; });
+        } else {
+            content += `${selectedDrop.name} - Qty ${item.latestQty} - UNFULFILLED - No Tracking\n`;
+        }
+    });
+    content += `\n================================================\nTotal Incoming: ${totalPackages} Packages\n`;
+    const blob = new Blob([content], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `RIFT_Receiving_${selectedDrop.store}.txt`;
+    a.click();
+  };
+
   // --- SELL LOGIC ---
   const openSellModal = (drop) => {
       const soldData = soldAssets[drop.name] || { qty: 0 };
       const activeQty = drop.totalItems - soldData.qty;
       if (activeQty <= 0) return;
       
-      const avgCost = drop.totalSpend / drop.totalItems;
+      const avgCost = drop.totalItems > 0 ? drop.totalSpend / drop.totalItems : 0;
       const mktVal = marketValues[drop.name] || avgCost;
       
       setSellModalDrop(drop);
-      setSellQty(activeQty); // Default to selling all remaining
-      setSellPrice((mktVal * (currency === 'ZAR' ? exchangeRate : 1)).toFixed(2)); // Default to market value in current currency
+      setSellQty(activeQty);
+      setSellPrice((mktVal * (currency === 'ZAR' ? exchangeRate : 1)).toFixed(2)); 
   };
 
   const confirmSale = () => {
@@ -227,7 +238,7 @@ export default function App() {
 
   const filteredDrops = data?.drops?.filter(d => d.name.toLowerCase().includes(search.toLowerCase()) || d.store.toLowerCase().includes(search.toLowerCase())) ||[];
 
-  // --- ADVANCED P&L CALCULATIONS (Splitting Active vs Sold) ---
+  // --- CALCULATE P&L GLOBALS ---
   let activeCostBasis = 0;
   let activeMarketValue = 0;
   let realizedProfit = 0;
@@ -237,11 +248,9 @@ export default function App() {
       const activeQty = drop.totalItems - soldData.qty;
       const unitCost = drop.totalItems > 0 ? drop.totalSpend / drop.totalItems : 0;
       
-      // Calculate Realized (Sold) Profit
       const soldCostBasis = soldData.qty * unitCost;
       realizedProfit += (soldData.revenueUSD - soldCostBasis);
 
-      // Calculate Unrealized (Active Inventory)
       if (activeQty > 0) {
           activeCostBasis += (activeQty * unitCost);
           const val = marketValues.hasOwnProperty(drop.name) ? marketValues[drop.name] : unitCost;
@@ -250,43 +259,7 @@ export default function App() {
   });
   
   let unrealizedProfit = activeMarketValue - activeCostBasis;
-  let globalROI = activeCostBasis > 0 ? (unrealizedProfit / activeCostBasis) * 100 : 0;
-  let totalProjectedWealthUSD = liquidCashUSD + activeMarketValue; // Cash + Inventory
-
-  // --- HISTORY SNAPSHOT ENGINE ---
-  useEffect(() => {
-      if (totalProjectedWealthUSD === 0 || loading) return;
-      const today = new Date().toISOString().split('T')[0];
-      const newHistory = { ...wealthHistory };
-      newHistory[today] = totalProjectedWealthUSD;
-      setWealthHistory(newHistory);
-      localStorage.setItem('rift_wealth_history', JSON.stringify(newHistory));
-  },[totalProjectedWealthUSD, loading]);
-
-  const historyDates = Object.keys(wealthHistory).sort();
-  let sevenDaysAgoVal = totalProjectedWealthUSD; 
-  let growthDelta = 0;
-  let growthPct = 0;
-
-  if (historyDates.length > 0) {
-      const targetDate = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString().split('T')[0];
-      const pastDates = historyDates.filter(d => d <= targetDate);
-      if (pastDates.length > 0) {
-          sevenDaysAgoVal = wealthHistory[pastDates[pastDates.length - 1]];
-      } else {
-          sevenDaysAgoVal = wealthHistory[historyDates[0]]; 
-      }
-      growthDelta = totalProjectedWealthUSD - sevenDaysAgoVal;
-      growthPct = sevenDaysAgoVal > 0 ? (growthDelta / sevenDaysAgoVal) * 100 : 0;
-  }
-
-  const chartData = historyDates.map(dateStr => {
-      const dateObj = new Date(dateStr);
-      return {
-          date: dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          Balance: wealthHistory[dateStr] 
-      };
-  });
+  let totalProjectedWealthUSD = liquidCashUSD + activeMarketValue;
 
   const lockedCap = data?.globalStats?.lockedCapital || 0;
   const floatingCap = data?.globalStats?.floatingCapital || 0;
@@ -306,7 +279,7 @@ export default function App() {
   const BanknotesIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" /></svg>);
   const SellIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 mb-1"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>);
 
-  // --- SELL MODAL ---
+  // --- MODALS ---
   const SellModal = () => {
       if (!sellModalDrop) return null;
       const soldData = soldAssets[sellModalDrop.name] || { qty: 0 };
@@ -351,7 +324,7 @@ export default function App() {
       );
   };
 
-  const TimelineModal = () => { /* Kept Same */
+  const TimelineModal = () => {
     if (!trackingModal) return null;
     return (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/90 backdrop-blur-md p-4 transition-all">
@@ -379,7 +352,7 @@ export default function App() {
     );
   };
 
-  const RiskModal = ({ title, type, items, Icon, onClose }) => ( /* Kept Same */
+  const RiskModal = ({ title, type, items, Icon, onClose }) => (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md p-4 transition-all">
         <div className="bg-[#101010] w-full max-w-sm rounded-3xl border border-white/10 overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-200">
             <div className="p-5 border-b border-white/5 flex justify-between items-center bg-[#151515]"><div className="flex items-center space-x-3"><Icon className={`w-5 h-5 ${type === 'card' ? 'text-yellow-500' : 'text-blue-500'}`} /><h2 className="text-sm font-black text-white uppercase tracking-widest">{title}</h2></div><button onClick={onClose} className="text-gray-500 hover:text-white text-xs font-bold">CLOSE</button></div>
@@ -401,12 +374,11 @@ export default function App() {
     </div>
   );
 
-  // --- DETAIL VIEW ---
+  // --- DETAIL VIEW RENDER ---
   if (selectedDrop) {
     const avgUnitCost = selectedDrop.totalItems > 0 ? selectedDrop.totalSpend / selectedDrop.totalItems : 0;
     const currentMarketValue = marketValues.hasOwnProperty(selectedDrop.name) ? marketValues[selectedDrop.name] : avgUnitCost;
     
-    // Calculate Active vs Sold for this specific drop
     const soldData = soldAssets[selectedDrop.name] || { qty: 0, revenueUSD: 0 };
     const activeQty = selectedDrop.totalItems - soldData.qty;
     
@@ -519,7 +491,7 @@ export default function App() {
     );
   }
 
-  // --- MAIN LAYOUT ---
+  // --- MAIN LAYOUT RENDER ---
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white font-sans pb-24 relative">
       <SellModal />
@@ -581,12 +553,17 @@ export default function App() {
 
                 <div className="space-y-4">
                   {filteredDrops.length === 0 && <div className="text-center text-gray-600 text-xs py-10">No drops found.</div>}
-                  {filteredDrops.map((drop, i) => (
+                  {filteredDrops.map((drop, i) => {
+                    // Hide if all items are sold out
+                    const soldData = soldAssets[drop.name] || { qty: 0 };
+                    if (drop.totalItems - soldData.qty <= 0) return null;
+
+                    return (
                     <div key={i} onClick={() => setSelectedDrop(drop)} className="group relative bg-[#151515] border border-white/5 rounded-2xl p-4 active:scale-[0.98] transition-all cursor-pointer hover:border-white/10 shadow-lg">
                       <div className="flex items-start">
                         <div className="w-16 h-16 bg-gray-800 rounded-lg mr-4 flex-shrink-0 overflow-hidden border border-white/5 relative">
                           {drop.image ? <img src={drop.image} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-xl grayscale opacity-50">📦</div>}
-                          <div className="absolute bottom-0 right-0 bg-black/60 backdrop-blur text-white text-[9px] px-1.5 py-0.5 rounded-tl-md font-bold">x{drop.totalItems}</div>
+                          <div className="absolute bottom-0 right-0 bg-black/60 backdrop-blur text-white text-[9px] px-1.5 py-0.5 rounded-tl-md font-bold">x{drop.totalItems - soldData.qty}</div>
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-start">
@@ -605,7 +582,7 @@ export default function App() {
                         </div>
                       </div>
                     </div>
-                  ))}
+                  )})}
                 </div>
               </div>
             )}
@@ -619,31 +596,9 @@ export default function App() {
 
                   {/* BANK BALANCE & WEALTH HISTORY */}
                   <div className="bg-gradient-to-b from-[#151515] to-[#101010] border border-white/5 rounded-3xl p-6 shadow-2xl mb-6 relative overflow-hidden">
-                      <div className="absolute top-0 left-0 w-full h-40 opacity-50 pointer-events-none">
-                          {chartData.length > 0 ? (
-                              <ResponsiveContainer width="100%" height="100%">
-                                  <AreaChart data={chartData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-                                      <defs>
-                                          <linearGradient id="colorWealth" x1="0" y1="0" x2="0" y2="1">
-                                              <stop offset="5%" stopColor="#10b981" stopOpacity={0.5}/>
-                                              <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                                          </linearGradient>
-                                      </defs>
-                                      <Tooltip content={<CustomTooltip currency={currency} rate={exchangeRate} />} cursor={{ stroke: '#ffffff20' }} />
-                                      <Area type="monotone" dataKey="Balance" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorWealth)" />
-                                  </AreaChart>
-                              </ResponsiveContainer>
-                          ) : (
-                             <div className="w-full h-full flex items-center justify-center text-gray-800 text-[10px] font-bold uppercase tracking-widest">Building History...</div>
-                          )}
-                      </div>
-
-                      <div className="relative z-10 pt-16">
+                      <div className="relative z-10">
                           <div className="flex justify-between items-end mb-1">
                               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Total Projected Wealth</p>
-                              <div className={`text-[10px] font-black px-2 py-0.5 rounded-lg font-mono ${growthDelta >= 0 ? 'bg-emerald-900/40 text-emerald-400' : 'bg-red-900/40 text-red-400'}`}>
-                                  {growthDelta >= 0 ? '+' : ''}{growthPct.toFixed(1)}% (7d)
-                              </div>
                           </div>
                           <p className="text-4xl font-black text-white tracking-tighter mb-6">
                               {formatMoney(totalProjectedWealthUSD, currency, exchangeRate)}
@@ -668,7 +623,7 @@ export default function App() {
                       </div>
                   </div>
                   
-                  {/* REALIZED PROFIT METRIC (NEW) */}
+                  {/* REALIZED PROFIT METRIC */}
                   <div className="grid grid-cols-2 gap-3 mb-6">
                       <div className="bg-[#151515] p-4 rounded-2xl border border-white/5 flex flex-col shadow-lg">
                           <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1 flex items-center space-x-1"><span className="text-emerald-500">●</span><span>Realized Profit</span></p>
@@ -694,8 +649,7 @@ export default function App() {
                       {data?.drops?.map((drop, i) => {
                           const soldData = soldAssets[drop.name] || { qty: 0 };
                           const activeQty = drop.totalItems - soldData.qty;
-                          
-                          if (activeQty <= 0) return null; // Only show active inventory
+                          if (activeQty <= 0) return null; 
 
                           const unitCost = drop.totalItems > 0 ? drop.totalSpend / drop.totalItems : 0;
                           const mktVal = marketValues.hasOwnProperty(drop.name) ? marketValues[drop.name] : unitCost;
