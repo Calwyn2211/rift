@@ -1,6 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
-import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { useState, useEffect } from 'react';
 
 // --- FORMAT MONEY WITH SECURE CURRENCY LOGIC ---
 const formatMoney = (amount, currency = 'USD', exchangeRate = 1) => {
@@ -56,21 +55,6 @@ const SwipeableRow = ({ children, onAction, text="HIDE", colorClass="bg-red-600 
     </div>
 );
 
-// Chart Tooltip
-const CustomTooltip = ({ active, payload, label, currency, rate }) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-[#151515] border border-white/10 p-3 rounded-xl shadow-xl">
-          <p className="text-gray-400 text-[10px] font-bold uppercase mb-2">{label}</p>
-          <p className="text-xs font-bold font-mono text-emerald-400">
-            Total Wealth: {formatMoney(payload[0].value, currency, rate)}
-          </p>
-        </div>
-      );
-    }
-    return null;
-};
-
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [data, setData] = useState(null);
@@ -80,34 +64,55 @@ export default function App() {
   // --- CURRENCY & BANK STATE ---
   const[currency, setCurrency] = useState('USD');
   const [exchangeRate, setExchangeRate] = useState(1);
+  const [thirtyDayAvgZAR, setThirtyDayAvgZAR] = useState(1);
   const [liquidCashUSD, setLiquidCashUSD] = useState(0);
-  const [wealthHistory, setWealthHistory] = useState({});
-  const [marketValues, setMarketValues] = useState({});
-  
-  // --- SOLD ASSETS STATE ---
-  const [soldAssets, setSoldAssets] = useState({}); 
-  const[sellModalDrop, setSellModalDrop] = useState(null); 
-  const [sellQty, setSellQty] = useState(1);
-  const [sellPrice, setSellPrice] = useState('');
+  const[marketValues, setMarketValues] = useState({});
+  const [soldAssets, setSoldAssets] = useState({});
+  const[wealthHistory, setWealthHistory] = useState({});
 
   // --- UI STATE ---
-  const [selectedDrop, setSelectedDrop] = useState(null);
+  const[selectedDrop, setSelectedDrop] = useState(null);
   const [showCards, setShowCards] = useState(false); 
   const [showAddresses, setShowAddresses] = useState(false); 
   const[trackingModal, setTrackingModal] = useState(null);
   const [privacyMode, setPrivacyMode] = useState(false);
   const [search, setSearch] = useState('');
   const [hiddenItems, setHiddenItems] = useState([]);
+  
+  // --- SELL MODAL STATE ---
+  const [sellModalDrop, setSellModalDrop] = useState(null);
+  const [sellQty, setSellQty] = useState(1);
+  const[sellPrice, setSellPrice] = useState('');
 
+  // --- FETCH EXCHANGE RATE & ORDERS ---
   const fetchData = async () => {
     setLoading(true);
     try {
       fetch('https://open.er-api.com/v6/latest/USD')
         .then(res => res.json())
-        .then(data => { if (data?.rates?.ZAR) setExchangeRate(data.rates.ZAR); })
+        .then(async (fxData) => { 
+            if (fxData?.rates?.ZAR) {
+                const liveRate = parseFloat(fxData.rates.ZAR);
+                setExchangeRate(liveRate); 
+                
+                const today = new Date();
+                const past = new Date(); past.setDate(today.getDate() - 30);
+                const tStr = today.toISOString().split('T')[0];
+                const pStr = past.toISOString().split('T')[0];
+                try {
+                    const histRes = await fetch(`https://api.frankfurter.app/${pStr}..${tStr}?to=ZAR&from=USD`);
+                    const histData = await histRes.json();
+                    const rates = Object.values(histData.rates).map(r => r.ZAR);
+                    const avg = rates.reduce((a,b) => a+b, 0) / rates.length;
+                    setThirtyDayAvgZAR(isNaN(avg) ? liveRate * 0.98 : avg);
+                } catch(e) {
+                    setThirtyDayAvgZAR(liveRate * 0.98); 
+                }
+            }
+        })
         .catch(e => console.log('Forex API error', e));
 
-      const [ordersRes, calRes] = await Promise.all([fetch('/api/check-orders'), fetch('/api/calendar')]);
+      const[ordersRes, calRes] = await Promise.all([fetch('/api/check-orders'), fetch('/api/calendar')]);
       setData(await ordersRes.json());
       const calJson = await calRes.json();
       setCalendarData(calJson.releases ||[]);
@@ -134,6 +139,7 @@ export default function App() {
     fetchData();
   },[]);
 
+  // --- DATA INPUT HANDLERS ---
   const handleMarketValueChange = (productName, value) => {
     const newVals = { ...marketValues };
     if (value === '') { delete newVals[productName]; } 
@@ -216,7 +222,7 @@ export default function App() {
       const mktVal = marketValues[drop.name] || avgCost;
       
       setSellModalDrop(drop);
-      setSellQty(activeQty); 
+      setSellQty(activeQty);
       setSellPrice((mktVal * (currency === 'ZAR' ? exchangeRate : 1)).toFixed(2)); 
   };
 
@@ -270,6 +276,7 @@ export default function App() {
   let unrealizedProfit = activeMarketValue - activeCostBasis;
   let totalProjectedWealthUSD = liquidCashUSD + activeMarketValue;
 
+  // --- HISTORY SNAPSHOT ENGINE (7-Day Growth) ---
   useEffect(() => {
       if (totalProjectedWealthUSD === 0 || loading) return;
       const today = new Date().toISOString().split('T')[0];
@@ -296,13 +303,10 @@ export default function App() {
       growthPct = sevenDaysAgoVal > 0 ? (growthDelta / sevenDaysAgoVal) * 100 : 0;
   }
 
-  const chartData = historyDates.map(dateStr => {
-      const dateObj = new Date(dateStr);
-      return {
-          date: dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          Balance: wealthHistory[dateStr] 
-      };
-  });
+  // Forex Oracle Logic
+  const zarDiff = exchangeRate - thirtyDayAvgZAR;
+  const isZarFavorable = zarDiff > 0; 
+  const potentialGainZAR = liquidCashUSD * zarDiff;
 
   const lockedCap = data?.globalStats?.lockedCapital || 0;
   const floatingCap = data?.globalStats?.floatingCapital || 0;
@@ -321,6 +325,7 @@ export default function App() {
   const DocumentIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25M9 16.5v.75m3-3v3M15 12v5.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>);
   const BanknotesIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" /></svg>);
   const SellIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 mb-1"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>);
+  const GlobeIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" /></svg>);
 
   // --- MODALS ---
   const SellModal = () => {
@@ -374,11 +379,8 @@ export default function App() {
     if (!trackingModal) return null;
     return (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/90 backdrop-blur-md p-4 transition-all">
-            <div className="bg-[#101010] w-full max-w-sm rounded-3xl border border-white/10 overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-200">
-                <div className="p-5 border-b border-white/5 flex justify-between items-center bg-[#151515]">
-                    <h2 className="text-sm font-black text-white uppercase tracking-widest">Shipment Status</h2>
-                    <button onClick={() => setTrackingModal(null)} className="text-gray-500 hover:text-white text-xs font-bold">CLOSE</button>
-                </div>
+            <div className="bg-[#101010] w-full max-w-sm rounded-3xl border border-white/10 overflow-hidden shadow-2xl">
+                <div className="p-5 border-b border-white/5 flex justify-between items-center bg-[#151515]"><h2 className="text-sm font-black text-white uppercase tracking-widest">Shipment Status</h2><button onClick={() => setTrackingModal(null)} className="text-gray-500 hover:text-white text-xs font-bold">CLOSE</button></div>
                 <div className="p-6 max-h-[60vh] overflow-y-auto">
                     {trackingModal.map((pkg, i) => {
                         const steps =['unfulfilled', 'shipped', 'delivered'];
@@ -386,56 +388,12 @@ export default function App() {
                         const Check = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 text-black"><path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" /></svg>;
                         return (
                             <div key={i} className="mb-8 last:mb-0">
-                                <div className="flex justify-between items-center mb-6">
-                                    <span className="text-[10px] font-bold bg-gray-800 text-gray-300 px-2 py-1 rounded tracking-wider">#{pkg.id}</span>
-                                </div>
+                                <div className="flex justify-between items-center mb-6"><span className="text-[10px] font-bold bg-gray-800 text-gray-300 px-2 py-1 rounded tracking-wider">#{pkg.id}</span></div>
                                 <div className="flex flex-col">
-                                    <div className="flex gap-4">
-                                        <div className="flex flex-col items-center relative">
-                                            <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center z-10 shrink-0"><Check /></div>
-                                            <div className={`w-0.5 h-full absolute top-5 ${currentIdx >= 1 ? 'bg-emerald-500' : 'bg-gray-800'}`}></div>
-                                        </div>
-                                        <div className="pb-8">
-                                            <p className="text-sm font-bold text-white leading-none">Order Confirmed</p>
-                                            <p className="text-[10px] text-gray-500 mt-1">Order processed successfully</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-4">
-                                        <div className="flex flex-col items-center relative">
-                                            <div className={`w-5 h-5 rounded-full flex items-center justify-center z-10 shrink-0 border-2 ${currentIdx >= 1 ? 'bg-blue-500 border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]' : 'bg-[#101010] border-gray-700'}`}>
-                                                {currentIdx >= 1 && <Check />}
-                                            </div>
-                                            <div className={`w-0.5 h-full absolute top-5 ${currentIdx >= 2 ? 'bg-yellow-500' : 'bg-gray-800'}`}></div>
-                                        </div>
-                                        <div className="pb-8">
-                                            <p className={`text-sm font-bold leading-none ${currentIdx >= 1 ? 'text-white' : 'text-gray-600'}`}>Shipped</p>
-                                            {currentIdx >= 1 ? (
-                                                <div className="mt-1">
-                                                    <p className="text-[10px] text-blue-400 font-mono">{pkg.carrier}</p>
-                                                    <p className="text-[10px] text-gray-500 font-mono tracking-wide">{pkg.tracking}</p>
-                                                </div>
-                                            ) : <p className="text-[10px] text-gray-600 mt-1">Pending shipment</p>}
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-4">
-                                        <div className="flex flex-col items-center relative">
-                                            <div className={`w-5 h-5 rounded-full flex items-center justify-center z-10 shrink-0 border-2 ${currentIdx >= 2 ? 'bg-yellow-500 border-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]' : 'bg-[#101010] border-gray-700'}`}>
-                                                {currentIdx >= 2 && <Check />}
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <p className={`text-sm font-bold leading-none ${currentIdx >= 2 ? 'text-white' : 'text-gray-600'}`}>Delivered</p>
-                                            <p className={`text-[10px] mt-1 ${currentIdx >= 2 ? 'text-gray-400' : 'text-gray-600'}`}>
-                                                {currentIdx >= 2 ? 'Package arrived' : 'Waiting for delivery'}
-                                            </p>
-                                        </div>
-                                    </div>
+                                    <div className="flex gap-4"><div className="flex flex-col items-center relative"><div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center z-10 shrink-0"><Check /></div><div className={`w-0.5 h-full absolute top-5 ${currentIdx >= 1 ? 'bg-emerald-500' : 'bg-gray-800'}`}></div></div><div className="pb-8"><p className="text-sm font-bold text-white leading-none">Order Confirmed</p></div></div>
+                                    <div className="flex gap-4"><div className="flex flex-col items-center relative"><div className={`w-5 h-5 rounded-full flex items-center justify-center z-10 shrink-0 border-2 ${currentIdx >= 1 ? 'bg-blue-500 border-blue-500' : 'bg-[#101010] border-gray-700'}`}>{currentIdx >= 1 && <Check />}</div><div className={`w-0.5 h-full absolute top-5 ${currentIdx >= 2 ? 'bg-yellow-500' : 'bg-gray-800'}`}></div></div><div className="pb-8"><p className={`text-sm font-bold leading-none ${currentIdx >= 1 ? 'text-white' : 'text-gray-600'}`}>Shipped</p>{currentIdx >= 1 ? <div className="mt-1"><p className="text-[10px] text-blue-400 font-mono">{pkg.carrier}</p><p className="text-[10px] text-gray-500 font-mono">{pkg.tracking}</p></div> : null}</div></div>
+                                    <div className="flex gap-4"><div className="flex flex-col items-center relative"><div className={`w-5 h-5 rounded-full flex items-center justify-center z-10 shrink-0 border-2 ${currentIdx >= 2 ? 'bg-yellow-500 border-yellow-500' : 'bg-[#101010] border-gray-700'}`}>{currentIdx >= 2 && <Check />}</div></div><div><p className={`text-sm font-bold leading-none ${currentIdx >= 2 ? 'text-white' : 'text-gray-600'}`}>Delivered</p></div></div>
                                 </div>
-                                {pkg.tracking && (
-                                    <a href={`https://t.17track.net/en#nums=${pkg.tracking}`} target="_blank" className="mt-6 block w-full text-center bg-white/5 hover:bg-white/10 text-white text-xs font-bold py-3 rounded-xl transition-colors border border-white/5 flex items-center justify-center space-x-2">
-                                        <span>TRACK LIVE</span>
-                                    </a>
-                                )}
                             </div>
                         );
                     })}
@@ -448,31 +406,17 @@ export default function App() {
   const RiskModal = ({ title, type, items, Icon, onClose }) => (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md p-4 transition-all">
         <div className="bg-[#101010] w-full max-w-sm rounded-3xl border border-white/10 overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-200">
-            <div className="p-5 border-b border-white/5 flex justify-between items-center bg-[#151515]">
-                <div className="flex items-center space-x-3">
-                    <Icon className={`w-5 h-5 ${type === 'card' ? 'text-yellow-500' : 'text-blue-500'}`} />
-                    <h2 className="text-sm font-black text-white uppercase tracking-widest">{title}</h2>
-                </div>
-                <button onClick={onClose} className="text-gray-500 hover:text-white text-xs font-bold">CLOSE</button>
-            </div>
+            <div className="p-5 border-b border-white/5 flex justify-between items-center bg-[#151515]"><div className="flex items-center space-x-3"><Icon className={`w-5 h-5 ${type === 'card' ? 'text-yellow-500' : 'text-blue-500'}`} /><h2 className="text-sm font-black text-white uppercase tracking-widest">{title}</h2></div><button onClick={onClose} className="text-gray-500 hover:text-white text-xs font-bold">CLOSE</button></div>
             <div className="p-4 max-h-[60vh] overflow-y-auto space-y-2">
-                {items?.length === 0 && <div className="text-center py-8"><p className="text-gray-600 text-xs">No data collected yet.</p></div>}
                 {items?.map((item, i) => {
                     const total = item.total; const canceled = item.canceled; const rate = (canceled / total) * 100;
                     let color = "text-emerald-500"; let bg = "bg-emerald-500/10 border-emerald-500/20";
                     if (rate > 50) { color = "text-red-500"; bg = "bg-red-500/10 border-red-500/20"; } else if (rate > 0) { color = "text-orange-500"; bg = "bg-orange-500/10 border-orange-500/20"; }
                     const label = type === 'card' ? (item.last4 === 'PayPal' ? 'PayPal' : `Ending in ${item.last4}`) : item.address.split(',')[0];
-                    const subLabel = type === 'card' ? `${total} transactions` : item.address;
                     return (
                         <div key={i} className="flex justify-between items-start p-3 rounded-xl border border-white/5 bg-[#151515]">
-                            <div className="flex-1 min-w-0 mr-4">
-                                <p className="text-sm font-bold text-gray-200 truncate">{label}</p>
-                                <p className="text-[10px] text-gray-500 truncate leading-relaxed">{subLabel}</p>
-                            </div>
-                            <div className="text-right flex flex-col items-end space-y-1">
-                                <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${bg} ${color}`}>{rate.toFixed(0)}% Fail</span>
-                                <p className="text-[10px] text-gray-600 font-mono">{canceled}/{total} Void</p>
-                            </div>
+                            <div className="flex-1 min-w-0 mr-4"><p className="text-sm font-bold text-gray-200 truncate">{label}</p></div>
+                            <div className="text-right flex flex-col items-end space-y-1"><span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${bg} ${color}`}>{rate.toFixed(0)}% Fail</span></div>
                         </div>
                     );
                 })}
@@ -501,6 +445,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-[#0a0a0a] text-white font-sans relative">
         <TimelineModal />
+        <SellModal />
         
         <div className="sticky top-0 z-40 bg-[#0a0a0a]/90 backdrop-blur-md border-b border-white/10 p-4">
             <div className="max-w-md mx-auto flex items-center justify-between">
@@ -563,9 +508,7 @@ export default function App() {
 
                   <div className="flex justify-between items-center px-1 pt-2 mt-2">
                       <span className="text-[10px] text-gray-400 font-bold uppercase">Est. Total Net Profit</span>
-                      <span className={`text-base font-black font-mono ${totalExpectedProfit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                          {totalExpectedProfit >= 0 ? '+' : ''}{formatMoney(totalExpectedProfit, currency, exchangeRate)}
-                      </span>
+                      <span className={`text-base font-black font-mono ${totalExpectedProfit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{totalExpectedProfit >= 0 ? '+' : ''}{formatMoney(totalExpectedProfit, currency, exchangeRate)}</span>
                   </div>
               </div>
           )}
@@ -613,7 +556,6 @@ export default function App() {
                       <DocumentIcon className="w-3 h-3" /><span>Export receiving txt</span>
                   </button>
                   <button onClick={() => setPrivacyMode(!privacyMode)} className="text-[9px] text-gray-500 hover:text-white uppercase transition-colors font-bold flex items-center space-x-1">
-                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>
                      <span>{privacyMode ? "Show Emails" : "Hide Emails"}</span>
                   </button>
               </div>
@@ -625,7 +567,8 @@ export default function App() {
                const confirmedCount = item.count - item.canceled;
                const unitPrice = item.latestQty > 0 ? item.latestPrice / item.latestQty : item.latestPrice;
 
-               const InnerCard = (
+               return (
+                <SwipeableRow key={i} onAction={() => setHiddenItems([...hiddenItems, item.email])} text="HIDE" colorClass="bg-red-600 border-red-600">
                   <div className="bg-[#151515] border border-white/5 rounded-xl p-4 flex justify-between items-center w-full h-full shadow-lg">
                     <div className="flex flex-col min-w-0 mr-4">
                       <span className="text-sm font-mono text-gray-300 truncate mb-1">{maskEmail(item.email)}</span>
@@ -652,11 +595,6 @@ export default function App() {
                       </div>
                     </div>
                   </div>
-               );
-
-               return (
-                <SwipeableRow key={i} onAction={() => setHiddenItems([...hiddenItems, item.email])} text="HIDE" colorClass="bg-red-600 border-red-600">
-                  {InnerCard}
                 </SwipeableRow>
                );
             })}
@@ -666,7 +604,7 @@ export default function App() {
     );
   }
 
-  // --- MAIN LAYOUT RENDER (Tabs) ---
+  // --- MAIN LAYOUT RENDER ---
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white font-sans pb-24 relative">
       <SellModal />
@@ -747,12 +685,7 @@ export default function App() {
                               <h3 className="font-bold text-sm text-gray-200 leading-tight truncate pr-2">{drop.name}</h3>
                               <span className="text-emerald-400 text-xs font-bold whitespace-nowrap">{formatMoney(drop.totalSpend, currency, exchangeRate)}</span>
                           </div>
-                          
-                          <div className="flex items-center space-x-2 mt-1">
-                              <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wide">{drop.store}</p>
-                              {isFullySold && <span className="text-[8px] bg-emerald-900/30 text-emerald-500 px-1.5 rounded font-bold uppercase">SOLD OUT</span>}
-                          </div>
-                          
+                          <p className="text-[10px] text-gray-500 uppercase font-bold mt-1 tracking-wide">{drop.store}</p>
                           <div className="flex h-1.5 w-full bg-gray-800 rounded-full overflow-hidden mt-3">
                               <div className="h-full bg-emerald-500" style={{ width: `${(drop.confirmed / drop.totalOrders) * 100}%` }}></div>
                               <div className="h-full bg-red-500" style={{ width: `${(drop.canceled / drop.totalOrders) * 100}%` }}></div>
@@ -776,11 +709,13 @@ export default function App() {
                       <h2 className="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center"><ChartIcon className="w-3 h-3 mr-2" /> Financial Dashboard</h2>
                   </div>
 
-                  {/* BANK BALANCE */}
                   <div className="bg-gradient-to-b from-[#151515] to-[#101010] border border-white/5 rounded-3xl p-6 shadow-2xl mb-6 relative overflow-hidden">
                       <div className="relative z-10">
                           <div className="flex justify-between items-end mb-1">
                               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Total Projected Wealth</p>
+                              <div className={`text-[10px] font-black px-2 py-0.5 rounded-lg font-mono ${growthDelta >= 0 ? 'bg-emerald-900/40 text-emerald-400' : 'bg-red-900/40 text-red-400'}`}>
+                                  {growthDelta >= 0 ? '+' : ''}{growthPct.toFixed(1)}% (7d)
+                              </div>
                           </div>
                           <p className="text-4xl font-black text-white tracking-tighter mb-6">
                               {formatMoney(totalProjectedWealthUSD, currency, exchangeRate)}
@@ -804,8 +739,7 @@ export default function App() {
                           </div>
                       </div>
                   </div>
-                  
-                  {/* REALIZED VS UNREALIZED PROFIT */}
+
                   <div className="grid grid-cols-2 gap-3 mb-6">
                       <div className="bg-[#151515] p-4 rounded-2xl border border-white/5 flex flex-col shadow-lg">
                           <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1 flex items-center space-x-1"><span className="text-emerald-500">●</span><span>Realized Profit</span></p>
@@ -824,6 +758,63 @@ export default function App() {
                       </div>
                   </div>
 
+                  {/* FOREX ORACLE CARD */}
+                  <div className="bg-gradient-to-br from-[#0f172a] to-[#101010] border border-blue-500/20 rounded-3xl p-6 shadow-2xl mb-6 relative overflow-hidden">
+                      <div className="relative z-10">
+                          <div className="flex justify-between items-end mb-4">
+                              <div>
+                                  <p className="text-[10px] text-blue-400 font-bold uppercase tracking-widest mb-1">Live USD/ZAR Exchange</p>
+                                  <p className="text-3xl font-black text-white">R{exchangeRate.toFixed(2)}</p>
+                              </div>
+                              <div className="text-right">
+                                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Status</p>
+                                  <div className={`inline-block px-2 py-1 rounded-lg text-[10px] font-black ${isZarFavorable ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-500/20' : 'bg-orange-900/30 text-orange-400 border border-orange-500/20'}`}>
+                                      {isZarFavorable ? 'FAVORABLE RATE' : 'HOLD USD'}
+                                  </div>
+                              </div>
+                          </div>
+
+                          <div className="bg-black/50 p-4 rounded-xl border border-white/5 backdrop-blur-md">
+                              <div className="flex justify-between items-center">
+                                  <p className="text-xs text-gray-400">30-Day Moving Average:</p>
+                                  <p className="text-xs font-bold text-white">R{thirtyDayAvgZAR.toFixed(2)}</p>
+                              </div>
+                              {isZarFavorable && potentialGainZAR > 0 && (
+                                  <p className="text-[10px] text-emerald-400 font-bold mt-2 pt-2 border-t border-white/5">
+                                      Repatriating your liquid USD today yields a bonus of R{potentialGainZAR.toFixed(2)} compared to the 30-day average.
+                                  </p>
+                              )}
+                          </div>
+                      </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 mb-6">
+                      <div className="bg-[#151515] p-4 rounded-2xl border border-white/5 flex flex-col justify-center items-center text-center shadow-lg">
+                          <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-2">Setup Win Rate</p>
+                          <div className="relative w-16 h-16 flex items-center justify-center">
+                              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                                  <path className="text-gray-800" strokeDasharray="100, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" stroke="currentColor" strokeWidth="3" fill="none" />
+                                  <path className="text-yellow-500 transition-all duration-1000 ease-out" strokeDasharray={`${data?.globalStats?.winRate || 0}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" stroke="currentColor" strokeWidth="3" fill="none" />
+                              </svg>
+                              <div className="absolute text-sm font-black text-white font-mono">{(data?.globalStats?.winRate || 0).toFixed(0)}%</div>
+                          </div>
+                      </div>
+
+                      <div className="bg-[#151515] p-4 rounded-2xl border border-white/5 flex flex-col justify-center shadow-lg">
+                          <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-2">Liquidity Status</p>
+                          <div className="flex h-2 w-full bg-gray-800 rounded-full overflow-hidden mb-3">
+                              <div className="h-full bg-gray-500" style={{ width: `${lockedPct}%` }}></div>
+                              <div className="h-full bg-blue-500" style={{ width: `${floatingPct}%` }}></div>
+                              <div className="h-full bg-emerald-500" style={{ width: `${liquidPct}%` }}></div>
+                          </div>
+                          <div className="space-y-1">
+                              <div className="flex justify-between text-[9px] font-mono"><span className="text-gray-400">Locked</span><span className="text-white font-bold">{formatMoney(lockedCap, currency, exchangeRate)}</span></div>
+                              <div className="flex justify-between text-[9px] font-mono"><span className="text-blue-400">Floating</span><span className="text-white font-bold">{formatMoney(floatingCap, currency, exchangeRate)}</span></div>
+                              <div className="flex justify-between text-[9px] font-mono"><span className="text-emerald-400">Liquid</span><span className="text-white font-bold">{formatMoney(liquidCap, currency, exchangeRate)}</span></div>
+                          </div>
+                      </div>
+                  </div>
+
                   <h2 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Active Inventory Breakdown</h2>
                   <p className="text-xs text-gray-500 mb-4">Swipe left on an asset to mark it as sold and realize profits.</p>
                   
@@ -831,7 +822,6 @@ export default function App() {
                       {data?.drops?.map((drop, i) => {
                           const soldData = soldAssets[drop.name] || { qty: 0 };
                           const activeQty = drop.totalItems - soldData.qty;
-                          
                           if (activeQty <= 0) return null; 
 
                           const unitCost = drop.totalItems > 0 ? drop.totalSpend / drop.totalItems : 0;
