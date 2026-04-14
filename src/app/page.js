@@ -59,22 +59,29 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [data, setData] = useState(null);
   const [calendarData, setCalendarData] = useState([]);
-  const[loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   
   // --- CURRENCY & BANK STATE ---
-  const[currency, setCurrency] = useState('USD');
+  const [currency, setCurrency] = useState('USD');
   const [exchangeRate, setExchangeRate] = useState(1);
   const [thirtyDayAvgZAR, setThirtyDayAvgZAR] = useState(1);
   const [liquidCashUSD, setLiquidCashUSD] = useState(0);
-  const[marketValues, setMarketValues] = useState({});
+  const [marketValues, setMarketValues] = useState({});
   const [soldAssets, setSoldAssets] = useState({});
-  const[wealthHistory, setWealthHistory] = useState({});
+  const [wealthHistory, setWealthHistory] = useState({});
+
+  // --- NEW: SIMULATOR STATE ---
+  const [simFlips, setSimFlips] = useState([]);
+  const [simName, setSimName] = useState('');
+  const [simCost, setSimCost] = useState('');
+  const [simResell, setSimResell] = useState('');
+  const [simQty, setSimQty] = useState(1);
 
   // --- UI STATE ---
-  const[selectedDrop, setSelectedDrop] = useState(null);
+  const [selectedDrop, setSelectedDrop] = useState(null);
   const [showCards, setShowCards] = useState(false); 
   const [showAddresses, setShowAddresses] = useState(false); 
-  const[trackingModal, setTrackingModal] = useState(null);
+  const [trackingModal, setTrackingModal] = useState(null);
   const [privacyMode, setPrivacyMode] = useState(false);
   const [search, setSearch] = useState('');
   const [hiddenItems, setHiddenItems] = useState([]);
@@ -82,7 +89,7 @@ export default function App() {
   // --- SELL MODAL STATE ---
   const [sellModalDrop, setSellModalDrop] = useState(null);
   const [sellQty, setSellQty] = useState(1);
-  const[sellPrice, setSellPrice] = useState('');
+  const [sellPrice, setSellPrice] = useState('');
 
   // --- FETCH EXCHANGE RATE & ORDERS ---
   const fetchData = async () => {
@@ -112,7 +119,7 @@ export default function App() {
         })
         .catch(e => console.log('Forex API error', e));
 
-      const[ordersRes, calRes] = await Promise.all([fetch('/api/check-orders'), fetch('/api/calendar')]);
+      const [ordersRes, calRes] = await Promise.all([fetch('/api/check-orders'), fetch('/api/calendar')]);
       setData(await ordersRes.json());
       const calJson = await calRes.json();
       setCalendarData(calJson.releases ||[]);
@@ -135,6 +142,9 @@ export default function App() {
 
     const savedSold = localStorage.getItem('rift_sold_assets');
     if (savedSold) setSoldAssets(JSON.parse(savedSold));
+
+    const savedSims = localStorage.getItem('rift_sim_flips');
+    if (savedSims) setSimFlips(JSON.parse(savedSims));
 
     fetchData();
   },[]);
@@ -165,6 +175,35 @@ export default function App() {
     if (!privacyMode) return email;
     const parts = email.split('@');
     return parts.length > 1 ? `${parts[0].substring(0, 4)}***@${parts[1]}` : email;
+  };
+
+  // --- SIMULATOR LOGIC ---
+  const handleAddSim = () => {
+      const costUSD = currency === 'ZAR' ? parseFloat(simCost) / exchangeRate : parseFloat(simCost);
+      const resellUSD = currency === 'ZAR' ? parseFloat(simResell) / exchangeRate : parseFloat(simResell);
+      const qty = parseInt(simQty);
+
+      if (isNaN(costUSD) || isNaN(resellUSD) || isNaN(qty) || qty <= 0) return;
+
+      const newSim = {
+          id: Date.now(),
+          name: simName || `Hypothetical Drop #${simFlips.length + 1}`,
+          cost: costUSD,
+          resell: resellUSD,
+          qty: qty
+      };
+
+      const updated = [...simFlips, newSim];
+      setSimFlips(updated);
+      localStorage.setItem('rift_sim_flips', JSON.stringify(updated));
+
+      setSimName(''); setSimCost(''); setSimResell(''); setSimQty(1);
+  };
+
+  const handleRemoveSim = (id) => {
+      const updated = simFlips.filter(s => s.id !== id);
+      setSimFlips(updated);
+      localStorage.setItem('rift_sim_flips', JSON.stringify(updated));
   };
 
   // --- EXPORTS ---
@@ -276,7 +315,6 @@ export default function App() {
   let unrealizedProfit = activeMarketValue - activeCostBasis;
   let totalProjectedWealthUSD = liquidCashUSD + activeMarketValue;
 
-  // --- HISTORY SNAPSHOT ENGINE (7-Day Growth) ---
   useEffect(() => {
       if (totalProjectedWealthUSD === 0 || loading) return;
       const today = new Date().toISOString().split('T')[0];
@@ -286,32 +324,15 @@ export default function App() {
       localStorage.setItem('rift_wealth_history', JSON.stringify(newHistory));
   }, [totalProjectedWealthUSD, loading]);
 
-  const historyDates = Object.keys(wealthHistory).sort();
-  let sevenDaysAgoVal = totalProjectedWealthUSD; 
-  let growthDelta = 0;
-  let growthPct = 0;
-
-  if (historyDates.length > 0) {
-      const targetDate = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString().split('T')[0];
-      const pastDates = historyDates.filter(d => d <= targetDate);
-      if (pastDates.length > 0) {
-          sevenDaysAgoVal = wealthHistory[pastDates[pastDates.length - 1]];
-      } else {
-          sevenDaysAgoVal = wealthHistory[historyDates[0]]; 
-      }
-      growthDelta = totalProjectedWealthUSD - sevenDaysAgoVal;
-      growthPct = sevenDaysAgoVal > 0 ? (growthDelta / sevenDaysAgoVal) * 100 : 0;
-  }
-
-  // Forex Oracle Logic
+  // FOREX ORACLE
   const zarDiff = exchangeRate - thirtyDayAvgZAR;
   const isZarFavorable = zarDiff > 0; 
-  const potentialGainZAR = liquidCashUSD * zarDiff;
 
   const lockedCap = data?.globalStats?.lockedCapital || 0;
   const floatingCap = data?.globalStats?.floatingCapital || 0;
   const liquidCap = data?.globalStats?.liquidCapital || 0;
   const totalCap = lockedCap + floatingCap + liquidCap;
+  
   const lockedPct = totalCap > 0 ? (lockedCap / totalCap) * 100 : 0;
   const floatingPct = totalCap > 0 ? (floatingCap / totalCap) * 100 : 0;
   const liquidPct = totalCap > 0 ? (liquidCap / totalCap) * 100 : 0;
@@ -325,7 +346,11 @@ export default function App() {
   const DocumentIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25M9 16.5v.75m3-3v3M15 12v5.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>);
   const BanknotesIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" /></svg>);
   const SellIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 mb-1"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>);
+  const BeakerIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" /></svg>);
+  const TrophyIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M18.75 4.236c.982.143 1.954.317 2.916.52a6.003 6.003 0 01-5.395 4.972m0 0a8.001 8.001 0 00-1.587-5.592A8.001 8.001 0 0012 3a8.001 8.001 0 00-4.664 1.616" /></svg>);
+  const WarningIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>);
   const GlobeIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" /></svg>);
+
 
   // --- MODALS ---
   const SellModal = () => {
@@ -385,15 +410,59 @@ export default function App() {
                     {trackingModal.map((pkg, i) => {
                         const steps =['unfulfilled', 'shipped', 'delivered'];
                         const currentIdx = steps.indexOf(pkg.status) === -1 ? 0 : steps.indexOf(pkg.status);
-                        const Check = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 text-black"><path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" /></svg>;
+                        
                         return (
                             <div key={i} className="mb-8 last:mb-0">
-                                <div className="flex justify-between items-center mb-6"><span className="text-[10px] font-bold bg-gray-800 text-gray-300 px-2 py-1 rounded tracking-wider">#{pkg.id}</span></div>
-                                <div className="flex flex-col">
-                                    <div className="flex gap-4"><div className="flex flex-col items-center relative"><div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center z-10 shrink-0"><Check /></div><div className={`w-0.5 h-full absolute top-5 ${currentIdx >= 1 ? 'bg-emerald-500' : 'bg-gray-800'}`}></div></div><div className="pb-8"><p className="text-sm font-bold text-white leading-none">Order Confirmed</p></div></div>
-                                    <div className="flex gap-4"><div className="flex flex-col items-center relative"><div className={`w-5 h-5 rounded-full flex items-center justify-center z-10 shrink-0 border-2 ${currentIdx >= 1 ? 'bg-blue-500 border-blue-500' : 'bg-[#101010] border-gray-700'}`}>{currentIdx >= 1 && <Check />}</div><div className={`w-0.5 h-full absolute top-5 ${currentIdx >= 2 ? 'bg-yellow-500' : 'bg-gray-800'}`}></div></div><div className="pb-8"><p className={`text-sm font-bold leading-none ${currentIdx >= 1 ? 'text-white' : 'text-gray-600'}`}>Shipped</p>{currentIdx >= 1 ? <div className="mt-1"><p className="text-[10px] text-blue-400 font-mono">{pkg.carrier}</p><p className="text-[10px] text-gray-500 font-mono">{pkg.tracking}</p></div> : null}</div></div>
-                                    <div className="flex gap-4"><div className="flex flex-col items-center relative"><div className={`w-5 h-5 rounded-full flex items-center justify-center z-10 shrink-0 border-2 ${currentIdx >= 2 ? 'bg-yellow-500 border-yellow-500' : 'bg-[#101010] border-gray-700'}`}>{currentIdx >= 2 && <Check />}</div></div><div><p className={`text-sm font-bold leading-none ${currentIdx >= 2 ? 'text-white' : 'text-gray-600'}`}>Delivered</p></div></div>
+                                <div className="flex justify-between items-center mb-6">
+                                    <span className="text-[10px] font-bold bg-gray-800 text-gray-300 px-2 py-1 rounded tracking-wider">#{pkg.id}</span>
                                 </div>
+                                
+                                {/* Vertical Stepper */}
+                                <div className="relative pl-2 ml-1">
+                                    <div className={`absolute left-[7px] top-3 bottom-1/3 w-0.5 ${currentIdx >= 1 ? 'bg-emerald-500' : 'bg-gray-800'}`}></div>
+                                    <div className={`absolute left-[7px] top-1/2 bottom-0 w-0.5 ${currentIdx >= 2 ? 'bg-blue-500' : 'bg-gray-800'}`}></div>
+
+                                    <div className="relative flex items-start mb-8 group">
+                                        <div className={`absolute left-0 w-4 h-4 rounded-full border-2 z-10 bg-[#101010] flex items-center justify-center ${currentIdx >= 0 ? 'border-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]' : 'border-gray-700'}`}>
+                                            {currentIdx >= 0 && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>}
+                                        </div>
+                                        <div className="ml-8">
+                                            <p className={`text-sm font-bold ${currentIdx >= 0 ? 'text-white' : 'text-gray-500'}`}>Order Confirmed</p>
+                                            <p className="text-[10px] text-gray-500 mt-0.5">Order received successfully</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="relative flex items-start mb-8 group">
+                                        <div className={`absolute left-0 w-4 h-4 rounded-full border-2 z-10 bg-[#101010] flex items-center justify-center ${currentIdx >= 1 ? 'border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.3)]' : 'border-gray-700'}`}>
+                                            {currentIdx >= 1 && <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>}
+                                        </div>
+                                        <div className="ml-8">
+                                            <p className={`text-sm font-bold leading-none ${currentIdx >= 1 ? 'text-white' : 'text-gray-500'}`}>Shipped</p>
+                                            {currentIdx >= 1 ? (
+                                                <div className="flex flex-col mt-1">
+                                                    <p className="text-[10px] text-blue-400 font-mono">{pkg.carrier}</p>
+                                                    <p className="text-[10px] text-gray-500 font-mono tracking-wide">{pkg.tracking}</p>
+                                                </div>
+                                            ) : <p className="text-[10px] text-gray-500 mt-1">Pending shipment</p>}
+                                        </div>
+                                    </div>
+
+                                    <div className="relative flex items-start group">
+                                        <div className={`absolute left-0 w-4 h-4 rounded-full border-2 z-10 bg-[#101010] flex items-center justify-center ${currentIdx >= 2 ? 'border-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.3)]' : 'border-gray-700'}`}>
+                                            {currentIdx >= 2 && <div className="w-1.5 h-1.5 rounded-full bg-yellow-500"></div>}
+                                        </div>
+                                        <div className="ml-8">
+                                            <p className={`text-sm font-bold leading-none ${currentIdx >= 2 ? 'text-white' : 'text-gray-500'}`}>Delivered</p>
+                                            <p className="text-[10px] text-gray-500 mt-0.5">{currentIdx >= 2 ? 'Package arrived' : 'Waiting for delivery'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {pkg.tracking && (
+                                    <a href={`https://t.17track.net/en#nums=${pkg.tracking}`} target="_blank" className="mt-8 block w-full text-center bg-white/5 hover:bg-white/10 text-white text-xs font-bold py-3 rounded-xl transition-colors border border-white/5 flex items-center justify-center space-x-2">
+                                        <span>TRACK LIVE</span>
+                                    </a>
+                                )}
                             </div>
                         );
                     })}
@@ -408,6 +477,7 @@ export default function App() {
         <div className="bg-[#101010] w-full max-w-sm rounded-3xl border border-white/10 overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-200">
             <div className="p-5 border-b border-white/5 flex justify-between items-center bg-[#151515]"><div className="flex items-center space-x-3"><Icon className={`w-5 h-5 ${type === 'card' ? 'text-yellow-500' : 'text-blue-500'}`} /><h2 className="text-sm font-black text-white uppercase tracking-widest">{title}</h2></div><button onClick={onClose} className="text-gray-500 hover:text-white text-xs font-bold">CLOSE</button></div>
             <div className="p-4 max-h-[60vh] overflow-y-auto space-y-2">
+                {items?.length === 0 && <div className="text-center py-8"><p className="text-gray-600 text-xs">No data collected yet.</p></div>}
                 {items?.map((item, i) => {
                     const total = item.total; const canceled = item.canceled; const rate = (canceled / total) * 100;
                     let color = "text-emerald-500"; let bg = "bg-emerald-500/10 border-emerald-500/20";
@@ -519,32 +589,21 @@ export default function App() {
                       <h3 className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center space-x-2"><ChartIcon className="w-3 h-3" /> <span>Realized Valuation (Sold)</span></h3>
                       <span className="text-[10px] font-bold text-emerald-500 bg-emerald-900/20 px-2 py-0.5 rounded-full border border-emerald-500/20">Asset Liquidated</span>
                   </div>
-                  
                   <div className="flex justify-between items-center px-1 mb-2">
                       <span className="text-[10px] text-gray-500 font-bold uppercase">Unit Cost (Scraped)</span>
                       <span className="text-sm font-bold text-gray-300 font-mono">{formatMoney(avgUnitCost, currency, exchangeRate)}</span>
                   </div>
-
                   <div className="flex items-center justify-between bg-emerald-900/10 p-3 rounded-xl border border-emerald-500/20 mb-4">
                       <span className="text-xs font-bold text-emerald-400">Unit Sold Price (Avg)</span>
                       <span className="text-sm font-bold text-emerald-400 font-mono">{formatMoney(soldData.revenueUSD / soldData.qty, currency, exchangeRate)}</span>
                   </div>
-                  
                   <div className="flex justify-between items-center px-1 mb-2 mt-4 pt-4 border-t border-white/5">
-                      <span className="text-[10px] text-gray-500 font-bold uppercase">Total Spend</span>
-                      <span className="text-sm font-bold text-gray-400 font-mono">{formatMoney(selectedDrop.totalSpend, currency, exchangeRate)}</span>
-                  </div>
-
-                  <div className="flex justify-between items-center px-1 mb-2">
                       <span className="text-[10px] text-emerald-500 font-bold uppercase">Total Revenue ({soldData.qty} sold)</span>
                       <span className="text-sm font-bold text-white font-mono">{formatMoney(soldData.revenueUSD, currency, exchangeRate)}</span>
                   </div>
-
                   <div className="flex justify-between items-center px-1 pt-2 mt-2">
                       <span className="text-[10px] text-emerald-400 font-bold uppercase">Final Net Profit</span>
-                      <span className={`text-base font-black font-mono ${realizedProfitPartial >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                          {realizedProfitPartial >= 0 ? '+' : ''}{formatMoney(realizedProfitPartial, currency, exchangeRate)}
-                      </span>
+                      <span className={`text-base font-black font-mono ${realizedProfitPartial >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{realizedProfitPartial >= 0 ? '+' : ''}{formatMoney(realizedProfitPartial, currency, exchangeRate)}</span>
                   </div>
               </div>
           )}
@@ -604,7 +663,7 @@ export default function App() {
     );
   }
 
-  // --- MAIN LAYOUT RENDER ---
+  // --- MAIN LAYOUT RENDER (Tabs) ---
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white font-sans pb-24 relative">
       <SellModal />
@@ -713,9 +772,6 @@ export default function App() {
                       <div className="relative z-10">
                           <div className="flex justify-between items-end mb-1">
                               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Total Projected Wealth</p>
-                              <div className={`text-[10px] font-black px-2 py-0.5 rounded-lg font-mono ${growthDelta >= 0 ? 'bg-emerald-900/40 text-emerald-400' : 'bg-red-900/40 text-red-400'}`}>
-                                  {growthDelta >= 0 ? '+' : ''}{growthPct.toFixed(1)}% (7d)
-                              </div>
                           </div>
                           <p className="text-4xl font-black text-white tracking-tighter mb-6">
                               {formatMoney(totalProjectedWealthUSD, currency, exchangeRate)}
@@ -768,8 +824,8 @@ export default function App() {
                               </div>
                               <div className="text-right">
                                   <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Status</p>
-                                  <div className={`inline-block px-2 py-1 rounded-lg text-[10px] font-black ${isZarFavorable ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-500/20' : 'bg-orange-900/30 text-orange-400 border border-orange-500/20'}`}>
-                                      {isZarFavorable ? 'FAVORABLE RATE' : 'HOLD USD'}
+                                  <div className={`inline-block px-2 py-1 rounded-lg text-[10px] font-black ${(exchangeRate - thirtyDayAvgZAR) > 0 ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-500/20' : 'bg-orange-900/30 text-orange-400 border border-orange-500/20'}`}>
+                                      {(exchangeRate - thirtyDayAvgZAR) > 0 ? 'FAVORABLE RATE' : 'HOLD USD'}
                                   </div>
                               </div>
                           </div>
@@ -779,11 +835,6 @@ export default function App() {
                                   <p className="text-xs text-gray-400">30-Day Moving Average:</p>
                                   <p className="text-xs font-bold text-white">R{thirtyDayAvgZAR.toFixed(2)}</p>
                               </div>
-                              {isZarFavorable && potentialGainZAR > 0 && (
-                                  <p className="text-[10px] text-emerald-400 font-bold mt-2 pt-2 border-t border-white/5">
-                                      Repatriating your liquid USD today yields a bonus of R{potentialGainZAR.toFixed(2)} compared to the 30-day average.
-                                  </p>
-                              )}
                           </div>
                       </div>
                   </div>
@@ -860,6 +911,129 @@ export default function App() {
               </div>
             )}
 
+            {/* --- TAB 3: SIMULATOR --- */}
+            {activeTab === 'simulator' && (
+              <div className="animate-in fade-in duration-300">
+                  <h2 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4 flex items-center">
+                    <BeakerIcon className="w-3 h-3 mr-2" />
+                    Flip Simulator
+                  </h2>
+
+                  <div className="bg-[#151515] border border-white/5 rounded-2xl p-5 mb-6 shadow-xl">
+                      <div className="flex justify-between items-center mb-4">
+                          <span className="text-xs font-bold text-gray-300">Liquid Cash Available</span>
+                          <span className="text-sm font-black text-emerald-400 font-mono">{formatMoney(liquidCashUSD, currency, exchangeRate)}</span>
+                      </div>
+                      
+                      <div className="space-y-3">
+                          <input type="text" value={simName} onChange={(e) => setSimName(e.target.value)} placeholder="Product Name (e.g. 2026 Bowman)" className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500/50" />
+                          
+                          <div className="grid grid-cols-2 gap-3">
+                              <div className="bg-[#1a1a1a] border border-white/10 rounded-lg px-3 py-2 flex flex-col">
+                                  <span className="text-[9px] text-gray-500 uppercase font-bold mb-1">Unit Cost</span>
+                                  <div className="flex items-center text-sm">
+                                      <span className="text-gray-500 font-mono mr-1">{currency === 'ZAR' ? 'R' : '$'}</span>
+                                      <input type="number" value={simCost} onChange={(e) => setSimCost(e.target.value)} placeholder="0.00" className="bg-transparent text-white font-mono w-full focus:outline-none" />
+                                  </div>
+                              </div>
+                              <div className="bg-[#1a1a1a] border border-white/10 rounded-lg px-3 py-2 flex flex-col">
+                                  <span className="text-[9px] text-gray-500 uppercase font-bold mb-1">Est. Resell</span>
+                                  <div className="flex items-center text-sm">
+                                      <span className="text-gray-500 font-mono mr-1">{currency === 'ZAR' ? 'R' : '$'}</span>
+                                      <input type="number" value={simResell} onChange={(e) => setSimResell(e.target.value)} placeholder="0.00" className="bg-transparent text-white font-mono w-full focus:outline-none" />
+                                  </div>
+                              </div>
+                          </div>
+                          
+                          <div className="bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-3 flex justify-between items-center">
+                              <span className="text-xs text-gray-400 font-bold uppercase tracking-wider">Quantity</span>
+                              <div className="flex items-center space-x-4">
+                                  <button onClick={() => setSimQty(Math.max(1, simQty - 1))} className="text-gray-400 hover:text-white text-xl font-mono leading-none px-2">-</button>
+                                  <span className="text-white font-bold font-mono text-sm w-4 text-center">{simQty}</span>
+                                  <button onClick={() => setSimQty(simQty + 1)} className="text-gray-400 hover:text-white text-xl font-mono leading-none px-2">+</button>
+                              </div>
+                          </div>
+                      </div>
+
+                      <button onClick={handleAddSim} className="w-full mt-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-colors shadow-[0_0_15px_rgba(16,185,129,0.2)] text-xs uppercase tracking-widest">
+                          Add Scenario
+                      </button>
+                  </div>
+
+                  <h2 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Simulated Flips</h2>
+                  <div className="space-y-4 mb-10">
+                      {simFlips.length === 0 && <div className="text-center text-gray-600 text-xs py-10 border border-dashed border-white/10 rounded-xl">No simulations created.</div>}
+                      
+                      {[...simFlips].sort((a,b) => ((b.resell - b.cost) * b.qty) - ((a.resell - a.cost) * a.qty)).map((sim, i) => {
+                          const totalSpendUSD = sim.cost * sim.qty;
+                          const totalRevUSD = sim.resell * sim.qty;
+                          const netProfitUSD = totalRevUSD - totalSpendUSD;
+                          const roi = totalSpendUSD > 0 ? (netProfitUSD / totalSpendUSD) * 100 : 0;
+                          
+                          const canAfford = totalSpendUSD <= liquidCashUSD;
+                          const nwImpact = totalProjectedWealthUSD > 0 ? (netProfitUSD / totalProjectedWealthUSD) * 100 : 0;
+                          
+                          const dispSpend = formatMoney(totalSpendUSD, currency, exchangeRate);
+                          const dispProfit = formatMoney(netProfitUSD, currency, exchangeRate);
+                          const dispNewNW = formatMoney(totalProjectedWealthUSD + netProfitUSD, currency, exchangeRate);
+
+                          return (
+                              <div key={sim.id} className="bg-[#151515] border border-white/5 rounded-2xl p-4 shadow-lg relative overflow-hidden">
+                                  {i === 0 && netProfitUSD > 0 && (
+                                      <div className="absolute top-0 right-0 bg-yellow-500 text-black text-[8px] font-black px-2 py-1 rounded-bl-lg tracking-widest flex items-center">
+                                          <TrophyIcon className="w-3 h-3 mr-1" /> BEST ROI
+                                      </div>
+                                  )}
+                                  
+                                  <div className="flex justify-between items-start mb-3 pr-16">
+                                      <h3 className="font-bold text-sm text-white leading-tight">{sim.name}</h3>
+                                  </div>
+                                  
+                                  <div className="flex items-center space-x-2 mb-4">
+                                      <span className="text-[9px] bg-gray-800 text-gray-300 px-2 py-0.5 rounded font-mono">Qty: {sim.qty}</span>
+                                      <span className="text-[9px] bg-gray-800 text-gray-300 px-2 py-0.5 rounded font-mono">Cost: {formatMoney(sim.cost, currency, exchangeRate)}/ea</span>
+                                      <span className="text-[9px] bg-emerald-900/30 text-emerald-400 px-2 py-0.5 rounded font-mono">Sell: {formatMoney(sim.resell, currency, exchangeRate)}/ea</span>
+                                  </div>
+
+                                  <div className="grid grid-cols-2 gap-2 mb-3">
+                                      <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                                          <p className="text-[8px] text-gray-500 uppercase tracking-widest mb-0.5">Total Spend</p>
+                                          <p className={`text-sm font-mono font-bold ${canAfford ? 'text-white' : 'text-red-400'}`}>{dispSpend}</p>
+                                      </div>
+                                      <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                                          <p className="text-[8px] text-gray-500 uppercase tracking-widest mb-0.5">Net Profit</p>
+                                          <p className={`text-sm font-mono font-bold flex items-center justify-between ${netProfitUSD >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                              <span>{netProfitUSD >= 0 ? '+' : ''}{dispProfit}</span>
+                                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5">{roi.toFixed(0)}% ROI</span>
+                                          </p>
+                                      </div>
+                                  </div>
+
+                                  <div className="flex justify-between items-center pt-3 border-t border-white/5">
+                                      <div className="flex flex-col">
+                                          <span className="text-[9px] text-gray-500 uppercase tracking-widest mb-0.5">Potential Net Worth</span>
+                                          <span className="text-xs font-black font-mono text-emerald-500">
+                                              {dispNewNW} <span className={`text-[9px] font-normal ${nwImpact >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>({nwImpact >= 0 ? '+' : ''}{nwImpact.toFixed(1)}%)</span>
+                                          </span>
+                                      </div>
+                                      <button onClick={() => handleRemoveSim(sim.id)} className="text-[9px] font-bold text-gray-600 hover:text-red-500 uppercase tracking-widest transition-colors">
+                                          Remove
+                                      </button>
+                                  </div>
+                                  
+                                  {!canAfford && (
+                                      <div className="mt-3 bg-red-900/20 border border-red-500/20 p-2 rounded text-[9px] text-red-400 font-bold uppercase tracking-widest flex items-center justify-center space-x-1">
+                                          <WarningIcon className="w-3 h-3" />
+                                          <span>Exceeds Liquid Cash Balance</span>
+                                      </div>
+                                  )}
+                              </div>
+                          );
+                      })}
+                  </div>
+              </div>
+            )}
+
             {/* --- TAB: CALENDAR --- */}
             {activeTab === 'calendar' && (
               <div className="animate-in fade-in duration-300">
@@ -913,18 +1087,22 @@ export default function App() {
 
       {/* --- BOTTOM NAVIGATION BAR --- */}
       <div className="fixed bottom-4 left-4 right-4 z-50">
-          <div className="max-w-md mx-auto bg-[#1a1a1a]/95 backdrop-blur-xl border border-white/10 rounded-2xl px-8 py-3 flex justify-between items-center shadow-[0_10px_40px_rgba(0,0,0,0.5)]">
-              <button onClick={() => { setActiveTab('home'); setSelectedDrop(null); }} className={`flex flex-col items-center transition-colors ${activeTab === 'home' && !selectedDrop ? 'text-yellow-500' : 'text-gray-500 hover:text-gray-300'}`}>
+          <div className="max-w-md mx-auto bg-[#1a1a1a]/95 backdrop-blur-xl border border-white/10 rounded-2xl px-6 py-3 flex justify-between items-center shadow-[0_10px_40px_rgba(0,0,0,0.5)]">
+              <button onClick={() => { setActiveTab('home'); setSelectedDrop(null); }} className={`flex flex-col items-center transition-colors w-12 ${activeTab === 'home' && !selectedDrop ? 'text-yellow-500' : 'text-gray-500 hover:text-gray-300'}`}>
                   <HomeIcon className="w-6 h-6 mb-1" />
-                  <span className="text-[9px] font-black uppercase tracking-widest">Home</span>
+                  <span className="text-[8px] font-black uppercase tracking-widest">Home</span>
               </button>
-              <button onClick={() => { setActiveTab('analytics'); setSelectedDrop(null); }} className={`flex flex-col items-center transition-colors ${activeTab === 'analytics' && !selectedDrop ? 'text-emerald-500' : 'text-gray-500 hover:text-gray-300'}`}>
+              <button onClick={() => { setActiveTab('analytics'); setSelectedDrop(null); }} className={`flex flex-col items-center transition-colors w-12 ${activeTab === 'analytics' && !selectedDrop ? 'text-emerald-500' : 'text-gray-500 hover:text-gray-300'}`}>
                   <ChartIcon className="w-6 h-6 mb-1" />
-                  <span className="text-[9px] font-black uppercase tracking-widest">Analytics</span>
+                  <span className="text-[8px] font-black uppercase tracking-widest">P&L</span>
               </button>
-              <button onClick={() => { setActiveTab('calendar'); setSelectedDrop(null); }} className={`flex flex-col items-center transition-colors ${activeTab === 'calendar' && !selectedDrop ? 'text-blue-500' : 'text-gray-500 hover:text-gray-300'}`}>
+              <button onClick={() => { setActiveTab('simulator'); setSelectedDrop(null); }} className={`flex flex-col items-center transition-colors w-12 ${activeTab === 'simulator' && !selectedDrop ? 'text-purple-500' : 'text-gray-500 hover:text-gray-300'}`}>
+                  <BeakerIcon className="w-6 h-6 mb-1" />
+                  <span className="text-[8px] font-black uppercase tracking-widest">Sims</span>
+              </button>
+              <button onClick={() => { setActiveTab('calendar'); setSelectedDrop(null); }} className={`flex flex-col items-center transition-colors w-12 ${activeTab === 'calendar' && !selectedDrop ? 'text-blue-500' : 'text-gray-500 hover:text-gray-300'}`}>
                   <CalendarIcon className="w-6 h-6 mb-1" />
-                  <span className="text-[9px] font-black uppercase tracking-widest">Calendar</span>
+                  <span className="text-[8px] font-black uppercase tracking-widest">Drops</span>
               </button>
           </div>
       </div>
