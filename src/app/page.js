@@ -76,6 +76,7 @@ export default function App() {
   const [simCost, setSimCost] = useState('');
   const [simResell, setSimResell] = useState('');
   const [simQty, setSimQty] = useState(1);
+  const [simStep, setSimStep] = useState(1);
 
   // --- UI STATE ---
   const [selectedDrop, setSelectedDrop] = useState(null);
@@ -182,6 +183,7 @@ export default function App() {
       const costUSD = currency === 'ZAR' ? parseFloat(simCost) / exchangeRate : parseFloat(simCost);
       const resellUSD = currency === 'ZAR' ? parseFloat(simResell) / exchangeRate : parseFloat(simResell);
       const qty = parseInt(simQty);
+      const step = parseInt(simStep) || 1;
 
       if (isNaN(costUSD) || isNaN(resellUSD) || isNaN(qty) || qty <= 0) return;
 
@@ -190,7 +192,8 @@ export default function App() {
           name: simName || `Hypothetical Drop #${simFlips.length + 1}`,
           cost: costUSD,
           resell: resellUSD,
-          qty: qty
+          qty: qty,
+          step: step
       };
 
       const updated = [...simFlips, newSim];
@@ -349,7 +352,6 @@ export default function App() {
   const BeakerIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" /></svg>);
   const TrophyIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M18.75 4.236c.982.143 1.954.317 2.916.52a6.003 6.003 0 01-5.395 4.972m0 0a8.001 8.001 0 00-1.587-5.592A8.001 8.001 0 0012 3a8.001 8.001 0 00-4.664 1.616" /></svg>);
   const WarningIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>);
-  const GlobeIcon = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" /></svg>);
 
 
   // --- MODALS ---
@@ -945,12 +947,22 @@ export default function App() {
                               </div>
                           </div>
                           
-                          <div className="bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-3 flex justify-between items-center">
-                              <span className="text-xs text-gray-400 font-bold uppercase tracking-wider">Quantity</span>
-                              <div className="flex items-center space-x-4">
-                                  <button onClick={() => setSimQty(Math.max(1, simQty - 1))} className="text-gray-400 hover:text-white text-xl font-mono leading-none px-2">-</button>
-                                  <span className="text-white font-bold font-mono text-sm w-4 text-center">{simQty}</span>
-                                  <button onClick={() => setSimQty(simQty + 1)} className="text-gray-400 hover:text-white text-xl font-mono leading-none px-2">+</button>
+                          <div className="grid grid-cols-2 gap-3">
+                              <div className="bg-[#1a1a1a] border border-white/10 rounded-lg px-3 py-3 flex justify-between items-center">
+                                  <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Qty</span>
+                                  <div className="flex items-center space-x-3">
+                                      <button onClick={() => setSimQty(Math.max(1, simQty - 1))} className="text-gray-400 hover:text-white text-lg font-mono leading-none px-2">-</button>
+                                      <span className="text-white font-bold font-mono text-sm w-3 text-center">{simQty}</span>
+                                      <button onClick={() => setSimQty(simQty + 1)} className="text-gray-400 hover:text-white text-lg font-mono leading-none px-2">+</button>
+                                  </div>
+                              </div>
+                              <div className="bg-[#1a1a1a] border border-white/10 rounded-lg px-3 py-3 flex justify-between items-center">
+                                  <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Phase</span>
+                                  <div className="flex items-center space-x-3">
+                                      <button onClick={() => setSimStep(Math.max(1, simStep - 1))} className="text-gray-400 hover:text-white text-lg font-mono leading-none px-2">-</button>
+                                      <span className="text-white font-bold font-mono text-sm w-3 text-center">{simStep}</span>
+                                      <button onClick={() => setSimStep(simStep + 1)} className="text-gray-400 hover:text-white text-lg font-mono leading-none px-2">+</button>
+                                  </div>
                               </div>
                           </div>
                       </div>
@@ -960,76 +972,149 @@ export default function App() {
                       </button>
                   </div>
 
-                  <h2 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Simulated Flips</h2>
-                  <div className="space-y-4 mb-10">
+                  {/* --- CHAINED TIMELINE LOGIC --- */}
+                  <h2 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Chained Timeline</h2>
+                  <div className="space-y-0 mb-10">
                       {simFlips.length === 0 && <div className="text-center text-gray-600 text-xs py-10 border border-dashed border-white/10 rounded-xl">No simulations created.</div>}
                       
-                      {[...simFlips].sort((a,b) => ((b.resell - b.cost) * b.qty) - ((a.resell - a.cost) * a.qty)).map((sim, i) => {
-                          const totalSpendUSD = sim.cost * sim.qty;
-                          const totalRevUSD = sim.resell * sim.qty;
-                          const netProfitUSD = totalRevUSD - totalSpendUSD;
-                          const roi = totalSpendUSD > 0 ? (netProfitUSD / totalSpendUSD) * 100 : 0;
+                      {(() => {
+                          const groupedSims = simFlips.reduce((acc, sim) => {
+                              const s = sim.step || 1;
+                              if (!acc[s]) acc[s] = [];
+                              acc[s].push(sim);
+                              return acc;
+                          }, {});
                           
-                          const canAfford = totalSpendUSD <= liquidCashUSD;
-                          const nwImpact = totalProjectedWealthUSD > 0 ? (netProfitUSD / totalProjectedWealthUSD) * 100 : 0;
+                          const sortedSteps = Object.keys(groupedSims).map(Number).sort((a, b) => a - b);
                           
-                          const dispSpend = formatMoney(totalSpendUSD, currency, exchangeRate);
-                          const dispProfit = formatMoney(netProfitUSD, currency, exchangeRate);
-                          const dispNewNW = formatMoney(totalProjectedWealthUSD + netProfitUSD, currency, exchangeRate);
+                          let rollingCash = liquidCashUSD;
+                          let rollingNW = totalProjectedWealthUSD;
+                          let totalChainSpend = 0;
+                          let totalChainProfit = 0;
 
                           return (
-                              <div key={sim.id} className="bg-[#151515] border border-white/5 rounded-2xl p-4 shadow-lg relative overflow-hidden">
-                                  {i === 0 && netProfitUSD > 0 && (
-                                      <div className="absolute top-0 right-0 bg-yellow-500 text-black text-[8px] font-black px-2 py-1 rounded-bl-lg tracking-widest flex items-center">
-                                          <TrophyIcon className="w-3 h-3 mr-1" /> BEST ROI
+                              <>
+                                  {sortedSteps.map((step, index) => {
+                                      const phaseSims = groupedSims[step];
+                                      
+                                      // Sort items within phase by ROI descending
+                                      const sortedPhaseSims = [...phaseSims].sort((a, b) => {
+                                          const roiA = a.cost > 0 ? ((a.resell - a.cost) / a.cost) * 100 : 0;
+                                          const roiB = b.cost > 0 ? ((b.resell - b.cost) / b.cost) * 100 : 0;
+                                          return roiB - roiA;
+                                      });
+
+                                      const phaseSpend = phaseSims.reduce((acc, sim) => acc + (sim.cost * sim.qty), 0);
+                                      const phaseRev = phaseSims.reduce((acc, sim) => acc + (sim.resell * sim.qty), 0);
+                                      const phaseProfit = phaseRev - phaseSpend;
+                                      const phaseRoi = phaseSpend > 0 ? (phaseProfit / phaseSpend) * 100 : 0;
+                                      
+                                      const canAffordPhase = phaseSpend <= rollingCash;
+                                      const startingCash = rollingCash;
+                                      
+                                      if (canAffordPhase) {
+                                          rollingCash += phaseProfit;
+                                          rollingNW += phaseProfit;
+                                          totalChainSpend += phaseSpend;
+                                          totalChainProfit += phaseProfit;
+                                      }
+
+                                      return (
+                                          <div key={step} className="mb-6 relative">
+                                              {/* Fixed timeline connecting line: Anchored to the exact center under the circle layer */}
+                                              {index !== sortedSteps.length - 1 && <div className="absolute left-4 -ml-[1px] top-4 bottom-[-24px] w-0.5 bg-gray-800 z-0"></div>}
+                                              
+                                              <div className="relative z-10 flex items-center mb-3">
+                                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black border-2 bg-[#0a0a0a] ${canAffordPhase ? 'border-emerald-500 text-emerald-400' : 'border-red-500 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.3)]'}`}>
+                                                      {step}
+                                                  </div>
+                                                  <h3 className="ml-3 text-sm font-black uppercase tracking-widest text-white">Phase {step}</h3>
+                                                  <span className="ml-auto text-[10px] text-gray-500 font-mono">Start Cash: {formatMoney(startingCash, currency, exchangeRate)}</span>
+                                              </div>
+                                              
+                                              <div className={`bg-[#151515] border ${canAffordPhase ? 'border-white/5' : 'border-red-500/30'} rounded-2xl p-4 shadow-lg ml-4 relative overflow-hidden z-10`}>
+                                                  {sortedPhaseSims.map((sim, i) => {
+                                                      const itemProfit = (sim.resell - sim.cost) * sim.qty;
+                                                      const itemRoi = sim.cost > 0 ? ((sim.resell - sim.cost) / sim.cost) * 100 : 0;
+
+                                                      return (
+                                                          <div key={sim.id} className="flex justify-between items-center mb-3 pb-3 border-b border-white/5 last:border-0 last:mb-0 last:pb-0">
+                                                             <div className="flex-1">
+                                                                 <p className="text-xs font-bold text-gray-300 flex items-center">
+                                                                     {i === 0 && phaseSims.length > 1 && itemRoi > 0 && <TrophyIcon className="w-3 h-3 text-yellow-500 mr-1" />}
+                                                                     {sim.name} <span className="text-[9px] text-gray-500 font-mono ml-1">x{sim.qty}</span>
+                                                                 </p>
+                                                                 <p className="text-[9px] text-gray-500 font-mono mt-0.5">Cost: {formatMoney(sim.cost, currency, exchangeRate)} | Sell: {formatMoney(sim.resell, currency, exchangeRate)}</p>
+                                                             </div>
+                                                             <div className="text-right flex flex-col items-end">
+                                                                 <span className={`text-[10px] font-mono font-bold ${itemProfit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                                                     {itemProfit >= 0 ? '+' : ''} {formatMoney(itemProfit, currency, exchangeRate)}
+                                                                 </span>
+                                                                 <span className={`text-[9px] mt-0.5 bg-white/5 px-1.5 py-0.5 rounded font-mono ${itemRoi >= 0 ? 'text-blue-400' : 'text-red-400'}`}>
+                                                                     {itemRoi >= 0 ? '+' : ''}{itemRoi.toFixed(0)}% ROI
+                                                                 </span>
+                                                                 <button onClick={() => handleRemoveSim(sim.id)} className="text-[8px] mt-1 font-bold text-gray-600 hover:text-red-500 uppercase tracking-widest transition-colors">
+                                                                    Remove
+                                                                 </button>
+                                                             </div>
+                                                          </div>
+                                                      );
+                                                  })}
+                                                  
+                                                  <div className="mt-4 pt-3 border-t border-dashed border-white/10 bg-black/30 -mx-4 -mb-4 p-4 rounded-b-2xl">
+                                                      <div className="flex justify-between items-center mb-1">
+                                                          <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Phase Spend</span>
+                                                          <span className={`text-xs font-mono font-bold ${canAffordPhase ? 'text-white' : 'text-red-400'}`}>{formatMoney(phaseSpend, currency, exchangeRate)}</span>
+                                                      </div>
+                                                      <div className="flex justify-between items-center">
+                                                          <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Phase Net Profit</span>
+                                                          <span className={`text-xs font-mono font-bold ${phaseProfit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                                              {phaseProfit >= 0 ? '+' : ''}{formatMoney(phaseProfit, currency, exchangeRate)}
+                                                          </span>
+                                                      </div>
+                                                      <div className="flex justify-between items-center mt-1">
+                                                          <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Phase ROI</span>
+                                                          <span className={`text-xs font-mono font-bold ${phaseRoi >= 0 ? 'text-blue-400' : 'text-red-400'}`}>
+                                                              {phaseRoi >= 0 ? '+' : ''}{phaseRoi.toFixed(1)}%
+                                                          </span>
+                                                      </div>
+                                                      {!canAffordPhase && (
+                                                          <div className="mt-3 bg-red-900/20 border border-red-500/20 p-2 rounded text-[9px] text-red-400 font-bold uppercase tracking-widest flex items-center justify-center space-x-1">
+                                                              <WarningIcon className="w-3 h-3" />
+                                                              <span>Insufficient Liquidity to Execute Phase</span>
+                                                          </div>
+                                                      )}
+                                                  </div>
+                                              </div>
+                                          </div>
+                                      );
+                                  })}
+
+                                  {/* --- GRAND TOTAL SUMMARY --- */}
+                                  {sortedSteps.length > 0 && (
+                                      <div className="mt-8 bg-gradient-to-b from-[#151515] to-[#101010] border border-emerald-500/30 rounded-2xl p-5 shadow-[0_0_20px_rgba(16,185,129,0.1)] ml-4">
+                                          <h3 className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-3 flex items-center">
+                                              <TrophyIcon className="w-4 h-4 mr-1" /> Campaign Results
+                                          </h3>
+                                          <div className="flex justify-between items-center mb-2">
+                                              <span className="text-xs text-gray-400">Total Final Liquidity</span>
+                                              <span className="text-sm font-mono font-bold text-white">{formatMoney(rollingCash, currency, exchangeRate)}</span>
+                                          </div>
+                                          <div className="flex justify-between items-center mb-2">
+                                              <span className="text-xs text-gray-400">Total Proj. Net Worth</span>
+                                              <span className="text-sm font-mono font-black text-emerald-400">{formatMoney(rollingNW, currency, exchangeRate)}</span>
+                                          </div>
+                                          <div className="flex justify-between items-center pt-2 border-t border-white/5">
+                                              <span className="text-xs text-gray-400">Cumulative ROI</span>
+                                              <span className="text-sm font-mono font-bold text-blue-400">
+                                                  {totalChainSpend > 0 ? ((totalChainProfit / totalChainSpend) * 100).toFixed(1) : 0}%
+                                              </span>
+                                          </div>
                                       </div>
                                   )}
-                                  
-                                  <div className="flex justify-between items-start mb-3 pr-16">
-                                      <h3 className="font-bold text-sm text-white leading-tight">{sim.name}</h3>
-                                  </div>
-                                  
-                                  <div className="flex items-center space-x-2 mb-4">
-                                      <span className="text-[9px] bg-gray-800 text-gray-300 px-2 py-0.5 rounded font-mono">Qty: {sim.qty}</span>
-                                      <span className="text-[9px] bg-gray-800 text-gray-300 px-2 py-0.5 rounded font-mono">Cost: {formatMoney(sim.cost, currency, exchangeRate)}/ea</span>
-                                      <span className="text-[9px] bg-emerald-900/30 text-emerald-400 px-2 py-0.5 rounded font-mono">Sell: {formatMoney(sim.resell, currency, exchangeRate)}/ea</span>
-                                  </div>
-
-                                  <div className="grid grid-cols-2 gap-2 mb-3">
-                                      <div className="bg-black/30 p-2 rounded-lg border border-white/5">
-                                          <p className="text-[8px] text-gray-500 uppercase tracking-widest mb-0.5">Total Spend</p>
-                                          <p className={`text-sm font-mono font-bold ${canAfford ? 'text-white' : 'text-red-400'}`}>{dispSpend}</p>
-                                      </div>
-                                      <div className="bg-black/30 p-2 rounded-lg border border-white/5">
-                                          <p className="text-[8px] text-gray-500 uppercase tracking-widest mb-0.5">Net Profit</p>
-                                          <p className={`text-sm font-mono font-bold flex items-center justify-between ${netProfitUSD >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                              <span>{netProfitUSD >= 0 ? '+' : ''}{dispProfit}</span>
-                                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5">{roi.toFixed(0)}% ROI</span>
-                                          </p>
-                                      </div>
-                                  </div>
-
-                                  <div className="flex justify-between items-center pt-3 border-t border-white/5">
-                                      <div className="flex flex-col">
-                                          <span className="text-[9px] text-gray-500 uppercase tracking-widest mb-0.5">Potential Net Worth</span>
-                                          <span className="text-xs font-black font-mono text-emerald-500">
-                                              {dispNewNW} <span className={`text-[9px] font-normal ${nwImpact >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>({nwImpact >= 0 ? '+' : ''}{nwImpact.toFixed(1)}%)</span>
-                                          </span>
-                                      </div>
-                                      <button onClick={() => handleRemoveSim(sim.id)} className="text-[9px] font-bold text-gray-600 hover:text-red-500 uppercase tracking-widest transition-colors">
-                                          Remove
-                                      </button>
-                                  </div>
-                                  
-                                  {!canAfford && (
-                                      <div className="mt-3 bg-red-900/20 border border-red-500/20 p-2 rounded text-[9px] text-red-400 font-bold uppercase tracking-widest flex items-center justify-center space-x-1">
-                                          <WarningIcon className="w-3 h-3" />
-                                          <span>Exceeds Liquid Cash Balance</span>
-                                      </div>
-                                  )}
-                              </div>
+                              </>
                           );
-                      })}
+                      })()}
                   </div>
               </div>
             )}
