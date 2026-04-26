@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# claude code
+CLAUDE.md
+.claude/
+
+# scraper debug artefacts
+debug-topps.html
+debug-topps.png

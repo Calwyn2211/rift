@@ -19,5 +19,5 @@ export function middleware(request) {
 
 // Only protect these routes (don't block images/css)
 export const config = {
-  matcher: ['/', '/api/check-orders'],
+  matcher: ['/', '/api/check-orders', '/api/state', '/api/orders'],
 };

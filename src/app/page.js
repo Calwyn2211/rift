@@ -1,5 +1,61 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+
+// --- PERSISTENCE LAYER (KV with localStorage fallback) ---
+const STORAGE_KEYS = {
+  marketValues: 'rift_market_values',
+  liquidCashUSD: 'rift_liquid_cash',
+  wealthHistory: 'rift_wealth_history',
+  currency: 'rift_currency',
+  soldAssets: 'rift_sold_assets',
+  simFlips: 'rift_sim_flips',
+  hiddenItems: 'rift_hidden_items',
+};
+
+const DEFAULT_STATE = {
+  marketValues: {},
+  liquidCashUSD: 0,
+  wealthHistory: {},
+  currency: 'USD',
+  soldAssets: {},
+  simFlips: [],
+  hiddenItems: [],
+};
+
+function readLocalState() {
+  if (typeof window === 'undefined') return { ...DEFAULT_STATE };
+  const out = { ...DEFAULT_STATE };
+  const json = (k, fallback) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fallback; } catch { return fallback; } };
+  out.marketValues = json(STORAGE_KEYS.marketValues, {});
+  out.wealthHistory = json(STORAGE_KEYS.wealthHistory, {});
+  out.soldAssets = json(STORAGE_KEYS.soldAssets, {});
+  out.simFlips = json(STORAGE_KEYS.simFlips, []);
+  out.hiddenItems = json(STORAGE_KEYS.hiddenItems, []);
+  try { const v = localStorage.getItem(STORAGE_KEYS.liquidCashUSD); if (v) out.liquidCashUSD = parseFloat(v) || 0; } catch {}
+  try { const v = localStorage.getItem(STORAGE_KEYS.currency); if (v) out.currency = v; } catch {}
+  return out;
+}
+
+function writeLocalKey(key, value) {
+  if (typeof window === 'undefined') return;
+  const k = STORAGE_KEYS[key];
+  if (!k) return;
+  try {
+    if (typeof value === 'number') localStorage.setItem(k, String(value));
+    else if (typeof value === 'string') localStorage.setItem(k, value);
+    else localStorage.setItem(k, JSON.stringify(value));
+  } catch {}
+}
+
+function isEmptyState(s) {
+  if (!s) return true;
+  return Object.keys(s.marketValues || {}).length === 0
+    && Object.keys(s.soldAssets || {}).length === 0
+    && (s.simFlips || []).length === 0
+    && Object.keys(s.wealthHistory || {}).length === 0
+    && !(s.liquidCashUSD || 0)
+    && (s.hiddenItems || []).length === 0;
+}
 
 // --- FORMAT MONEY WITH SECURE CURRENCY LOGIC ---
 const formatMoney = (amount, currency = 'USD', exchangeRate = 1) => {
@@ -92,17 +148,39 @@ export default function App() {
   const [sellQty, setSellQty] = useState(1);
   const [sellPrice, setSellPrice] = useState('');
 
+  // --- PERSISTENCE REFS ---
+  const pendingPatchRef = useRef({});
+  const flushTimerRef = useRef(null);
+  const hydratedRef = useRef(false);
+
+  const persistState = (patch) => {
+    Object.assign(pendingPatchRef.current, patch);
+    Object.entries(patch).forEach(([k, v]) => writeLocalKey(k, v));
+    if (!hydratedRef.current) return;
+    if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
+    flushTimerRef.current = setTimeout(() => {
+      const toSend = pendingPatchRef.current;
+      pendingPatchRef.current = {};
+      flushTimerRef.current = null;
+      fetch('/api/state', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(toSend),
+      }).catch(() => {});
+    }, 700);
+  };
+
   // --- FETCH EXCHANGE RATE & ORDERS ---
-  const fetchData = async () => {
+  const fetchData = async ({ live = false } = {}) => {
     setLoading(true);
     try {
       fetch('https://open.er-api.com/v6/latest/USD')
         .then(res => res.json())
-        .then(async (fxData) => { 
+        .then(async (fxData) => {
             if (fxData?.rates?.ZAR) {
                 const liveRate = parseFloat(fxData.rates.ZAR);
-                setExchangeRate(liveRate); 
-                
+                setExchangeRate(liveRate);
+
                 const today = new Date();
                 const past = new Date(); past.setDate(today.getDate() - 30);
                 const tStr = today.toISOString().split('T')[0];
@@ -114,41 +192,85 @@ export default function App() {
                     const avg = rates.reduce((a,b) => a+b, 0) / rates.length;
                     setThirtyDayAvgZAR(isNaN(avg) ? liveRate * 0.98 : avg);
                 } catch(e) {
-                    setThirtyDayAvgZAR(liveRate * 0.98); 
+                    setThirtyDayAvgZAR(liveRate * 0.98);
                 }
             }
         })
         .catch(e => console.log('Forex API error', e));
 
-      const [ordersRes, calRes] = await Promise.all([fetch('/api/check-orders'), fetch('/api/calendar')]);
-      setData(await ordersRes.json());
-      const calJson = await calRes.json();
-      setCalendarData(calJson.releases ||[]);
+      const calPromise = fetch('/api/calendar').then(r => r.json()).catch(() => ({ releases: [] }));
+      let ordersData = null;
+
+      if (!live) {
+        try {
+          const cacheRes = await fetch('/api/orders');
+          if (cacheRes.ok) {
+            const cacheJson = await cacheRes.json();
+            if (cacheJson.cache) ordersData = cacheJson.cache;
+          }
+        } catch {}
+      }
+
+      if (!ordersData) {
+        const liveRes = await fetch('/api/check-orders');
+        ordersData = await liveRes.json();
+      }
+
+      setData(ordersData);
+      const calJson = await calPromise;
+      setCalendarData(calJson.releases || []);
     } catch (e) { console.error(e); }
     setLoading(false);
   };
 
   useEffect(() => {
-    const savedValues = localStorage.getItem('rift_market_values');
-    if (savedValues) setMarketValues(JSON.parse(savedValues));
-    
-    const savedCash = localStorage.getItem('rift_liquid_cash');
-    if (savedCash) setLiquidCashUSD(parseFloat(savedCash));
+    let cancelled = false;
 
-    const savedHistory = localStorage.getItem('rift_wealth_history');
-    if (savedHistory) setWealthHistory(JSON.parse(savedHistory));
+    const init = async () => {
+      let nextState = null;
+      let kvOk = false;
 
-    const savedCurrency = localStorage.getItem('rift_currency');
-    if (savedCurrency) setCurrency(savedCurrency);
+      try {
+        const res = await fetch('/api/state');
+        if (res.ok) {
+          const json = await res.json();
+          nextState = json.state;
+          kvOk = !!json.kvConfigured;
+        }
+      } catch {}
 
-    const savedSold = localStorage.getItem('rift_sold_assets');
-    if (savedSold) setSoldAssets(JSON.parse(savedSold));
+      if (cancelled) return;
 
-    const savedSims = localStorage.getItem('rift_sim_flips');
-    if (savedSims) setSimFlips(JSON.parse(savedSims));
+      if (!kvOk || !nextState) {
+        nextState = readLocalState();
+      } else if (isEmptyState(nextState)) {
+        const local = readLocalState();
+        if (!isEmptyState(local)) {
+          nextState = local;
+          fetch('/api/state', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(local),
+          }).catch(() => {});
+        }
+      }
 
-    fetchData();
-  },[]);
+      if (cancelled) return;
+      setMarketValues(nextState.marketValues || {});
+      setLiquidCashUSD(nextState.liquidCashUSD || 0);
+      setWealthHistory(nextState.wealthHistory || {});
+      setCurrency(nextState.currency || 'USD');
+      setSoldAssets(nextState.soldAssets || {});
+      setSimFlips(nextState.simFlips || []);
+      setHiddenItems(nextState.hiddenItems || []);
+      hydratedRef.current = true;
+
+      await fetchData();
+    };
+
+    init();
+    return () => { cancelled = true; };
+  }, []);
 
   // --- DATA INPUT HANDLERS ---
   const handleMarketValueChange = (productName, value) => {
@@ -156,20 +278,20 @@ export default function App() {
     if (value === '') { delete newVals[productName]; } 
     else { newVals[productName] = currency === 'ZAR' ? parseFloat(value) / exchangeRate : parseFloat(value); }
     setMarketValues(newVals);
-    localStorage.setItem('rift_market_values', JSON.stringify(newVals));
+    persistState({ marketValues: newVals });
   };
 
   const handleCashChange = (value) => {
       const num = parseFloat(value);
       const usdValue = isNaN(num) ? 0 : (currency === 'ZAR' ? num / exchangeRate : num);
       setLiquidCashUSD(usdValue);
-      localStorage.setItem('rift_liquid_cash', usdValue);
+      persistState({ liquidCashUSD: usdValue });
   };
 
   const toggleCurrency = () => {
       const newCur = currency === 'USD' ? 'ZAR' : 'USD';
       setCurrency(newCur);
-      localStorage.setItem('rift_currency', newCur);
+      persistState({ currency: newCur });
   };
 
   const maskEmail = (email) => {
@@ -198,7 +320,7 @@ export default function App() {
 
       const updated = [...simFlips, newSim];
       setSimFlips(updated);
-      localStorage.setItem('rift_sim_flips', JSON.stringify(updated));
+      persistState({ simFlips: updated });
 
       setSimName(''); setSimCost(''); setSimResell(''); setSimQty(1);
   };
@@ -206,7 +328,7 @@ export default function App() {
   const handleRemoveSim = (id) => {
       const updated = simFlips.filter(s => s.id !== id);
       setSimFlips(updated);
-      localStorage.setItem('rift_sim_flips', JSON.stringify(updated));
+      persistState({ simFlips: updated });
   };
 
   // --- EXPORTS ---
@@ -284,13 +406,11 @@ export default function App() {
           }
       };
       setSoldAssets(newSoldAssets);
-      localStorage.setItem('rift_sold_assets', JSON.stringify(newSoldAssets));
-
       const newBalanceUSD = liquidCashUSD + totalRevenueUSD;
       setLiquidCashUSD(newBalanceUSD);
-      localStorage.setItem('rift_liquid_cash', newBalanceUSD);
+      persistState({ soldAssets: newSoldAssets, liquidCashUSD: newBalanceUSD });
 
-      setSellModalDrop(null); 
+      setSellModalDrop(null);
   };
 
   const filteredDrops = data?.drops?.filter(d => d.name.toLowerCase().includes(search.toLowerCase()) || d.store.toLowerCase().includes(search.toLowerCase())) ||[];
@@ -319,12 +439,12 @@ export default function App() {
   let totalProjectedWealthUSD = liquidCashUSD + activeMarketValue;
 
   useEffect(() => {
-      if (totalProjectedWealthUSD === 0 || loading) return;
+      if (!hydratedRef.current || totalProjectedWealthUSD === 0 || loading) return;
       const today = new Date().toISOString().split('T')[0];
       const newHistory = { ...wealthHistory };
       newHistory[today] = totalProjectedWealthUSD;
       setWealthHistory(newHistory);
-      localStorage.setItem('rift_wealth_history', JSON.stringify(newHistory));
+      persistState({ wealthHistory: newHistory });
   }, [totalProjectedWealthUSD, loading]);
 
   // FOREX ORACLE
@@ -629,7 +749,7 @@ export default function App() {
                const unitPrice = item.latestQty > 0 ? item.latestPrice / item.latestQty : item.latestPrice;
 
                return (
-                <SwipeableRow key={i} onAction={() => setHiddenItems([...hiddenItems, item.email])} text="HIDE" colorClass="bg-red-600 border-red-600">
+                <SwipeableRow key={i} onAction={() => { const updated = [...hiddenItems, item.email]; setHiddenItems(updated); persistState({ hiddenItems: updated }); }} text="HIDE" colorClass="bg-red-600 border-red-600">
                   <div className="bg-[#151515] border border-white/5 rounded-xl p-4 flex justify-between items-center w-full h-full shadow-lg">
                     <div className="flex flex-col min-w-0 mr-4">
                       <span className="text-sm font-mono text-gray-300 truncate mb-1">{maskEmail(item.email)}</span>
@@ -679,7 +799,7 @@ export default function App() {
               <button onClick={toggleCurrency} className="bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-black px-3 py-1.5 rounded-full transition-colors flex items-center space-x-1">
                   <span>{currency === 'USD' ? 'USD' : 'ZAR'}</span>
               </button>
-              <button onClick={fetchData} disabled={loading} className={`text-[10px] font-bold px-3 py-1.5 rounded-full transition-all ${loading ? 'bg-gray-800 text-gray-500' : 'bg-yellow-500 text-black hover:bg-yellow-400 shadow-[0_0_10px_rgba(234,179,8,0.4)]'}`}>
+              <button onClick={() => fetchData({ live: true })} disabled={loading} className={`text-[10px] font-bold px-3 py-1.5 rounded-full transition-all ${loading ? 'bg-gray-800 text-gray-500' : 'bg-yellow-500 text-black hover:bg-yellow-400 shadow-[0_0_10px_rgba(234,179,8,0.4)]'}`}>
                 {loading ? 'SYNCING...' : 'REFRESH'}
               </button>
           </div>
