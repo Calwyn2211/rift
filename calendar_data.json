@@ -1,15 +1,15 @@
 [
   {
     "id": "topps-0-2026-topps-cosmic-chrome--wwe",
-    "date": "Apr 26 – May 10, 2026",
+    "date": "April 27",
     "name": "2026 Topps Cosmic Chrome® WWE",
     "type": "PRE-ORDER",
     "price": "TBD",
-    "timestamp": 1777154400000
+    "timestamp": 1777240800000
   },
   {
     "id": "topps-1-topps--merlin-premier-league-2026",
-    "date": "Tuesday, Apr 28",
+    "date": "April 28",
     "name": "Topps® Merlin Premier League 2026",
     "type": "PRE-ORDER",
     "price": "TBD",
@@ -17,7 +17,7 @@
   },
   {
     "id": "topps-2-2025-26-topps-signature-class-basketball",
-    "date": "Tuesday, Apr 28 at 6:00 PM GMT+2",
+    "date": "April 28",
     "name": "2025-26 Topps Signature Class Basketball",
     "type": "PRE-ORDER",
     "price": "TBD",
@@ -25,7 +25,7 @@
   },
   {
     "id": "topps-3-2025-topps-definitive-baseball",
-    "date": "Wednesday, Apr 29",
+    "date": "April 29",
     "name": "2025 Topps Definitive Baseball",
     "type": "MAIN RELEASE",
     "price": "TBD",
@@ -33,7 +33,7 @@
   },
   {
     "id": "topps-4-2026-topps-chrome--black-baseball",
-    "date": "Wednesday, Apr 29",
+    "date": "April 29",
     "name": "2026 Topps Chrome® Black Baseball",
     "type": "MAIN RELEASE",
     "price": "TBD",
@@ -41,7 +41,7 @@
   },
   {
     "id": "topps-15-2025-26-topps-cosmic-chrome--basketball",
-    "date": "Wednesday, Apr 29",
+    "date": "April 29",
     "name": "2025-26 Topps Cosmic Chrome® Basketball",
     "type": "MAIN RELEASE",
     "price": "TBD",
@@ -49,7 +49,7 @@
   },
   {
     "id": "topps-5-2025-topps-chrome--football",
-    "date": "Friday, May 1",
+    "date": "May 1",
     "name": "2025 Topps Chrome® Football",
     "type": "MAIN RELEASE",
     "price": "TBD",
@@ -57,7 +57,7 @@
   },
   {
     "id": "topps-6-2025-topps-royalty-wwe",
-    "date": "Friday, May 1 at 7:00 PM GMT+2",
+    "date": "May 1",
     "name": "2025 Topps Royalty WWE",
     "type": "MAIN RELEASE",
     "price": "TBD",
@@ -65,7 +65,7 @@
   },
   {
     "id": "topps-7-topps-dynasty-baseball",
-    "date": "Monday, May 4",
+    "date": "May 4",
     "name": "Topps Dynasty Baseball",
     "type": "PRE-ORDER",
     "price": "TBD",
@@ -73,7 +73,7 @@
   },
   {
     "id": "topps-8-2025-star-wars-masterworks",
-    "date": "Monday, May 4",
+    "date": "May 4",
     "name": "2025 Star Wars Masterworks",
     "type": "PRE-ORDER",
     "price": "TBD",
@@ -81,15 +81,15 @@
   },
   {
     "id": "topps-9-topps-signature-class-football",
-    "date": "Tuesday, May 5",
+    "date": "May 4",
     "name": "Topps Signature Class Football",
     "type": "PRE-ORDER",
     "price": "TBD",
-    "timestamp": 1777932000000
+    "timestamp": 1777845600000
   },
   {
     "id": "topps-10-2025-topps-chrome--platinum-baseball",
-    "date": "Tuesday, May 5",
+    "date": "May 5",
     "name": "2025 Topps Chrome® Platinum Baseball",
     "type": "PRE-ORDER",
     "price": "TBD",
@@ -97,7 +97,7 @@
   },
   {
     "id": "topps-11-2025-topps-30-years-of-toy-story",
-    "date": "Wednesday, May 6",
+    "date": "May 6",
     "name": "2025 Topps 30 Years of Toy Story",
     "type": "EQL DRAW",
     "price": "TBD",
@@ -105,7 +105,7 @@
   },
   {
     "id": "topps-12-2025-26-bowman-basketball",
-    "date": "Thursday, May 7",
+    "date": "May 7",
     "name": "2025-26 Bowman Basketball",
     "type": "MAIN RELEASE",
     "price": "TBD",
@@ -113,7 +113,7 @@
   },
   {
     "id": "topps-13-topps-chrome--uefa-club-competitions-202",
-    "date": "Thursday, May 7",
+    "date": "May 7",
     "name": "Topps Chrome® UEFA Club Competitions 2025-26",
     "type": "MAIN RELEASE",
     "price": "TBD",
@@ -121,7 +121,7 @@
   },
   {
     "id": "topps-14-2026-topps-chrome--ufc",
-    "date": "Friday, May 8",
+    "date": "May 8",
     "name": "2026 Topps Chrome® UFC",
     "type": "MAIN RELEASE",
     "price": "TBD",
@@ -129,7 +129,7 @@
   },
   {
     "id": "topps-16-2025-topps-finest-football",
-    "date": "Friday, May 15",
+    "date": "May 15",
     "name": "2025 Topps Finest Football",
     "type": "MAIN RELEASE",
     "price": "TBD",
@@ -137,7 +137,7 @@
   },
   {
     "id": "topps-17-2025-26-bowman-university-best-basketbal",
-    "date": "Friday, May 15",
+    "date": "May 15",
     "name": "2025-26 Bowman University Best Basketball",
     "type": "MAIN RELEASE",
     "price": "TBD",
