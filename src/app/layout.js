@@ -1,5 +1,6 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import PWARegister from "./PWARegister";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,7 +14,19 @@ const geistMono = Geist_Mono({
 
 export const metadata = {
   title: "RIFT",
-  description: " ",
+  description: "Trading-card bot purchase tracker",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "RIFT",
+  },
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#0a0a0a",
 };
 
 export default function RootLayout({ children }) {
@@ -22,6 +35,7 @@ export default function RootLayout({ children }) {
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <PWARegister />
         {children}
       </body>
     </html>
