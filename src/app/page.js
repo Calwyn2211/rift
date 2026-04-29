@@ -1264,9 +1264,18 @@ export default function App() {
 
                                   return (
                                       <div key={dropIdx} className="w-full text-left flex bg-[#151515] border border-white/5 rounded-xl overflow-hidden shadow-sm">
-                                          <div className="w-16 bg-black/40 border-r border-white/5 flex flex-col items-center justify-center shrink-0 py-3 px-1">
-                                              <span className="text-[9px] font-bold text-gray-500 mb-1 truncate w-full text-center">{shortMonth}</span>
-                                              <span className="text-lg font-black text-white leading-none">{day}</span>
+                                          <div className="w-20 bg-black/40 border-r border-white/5 flex flex-col shrink-0">
+                                              <div className="w-full aspect-square bg-gray-800 overflow-hidden relative">
+                                                  {drop.image ? (
+                                                      <img src={drop.image} alt={drop.name} className="w-full h-full object-cover" loading="lazy" />
+                                                  ) : (
+                                                      <div className="w-full h-full flex items-center justify-center text-2xl grayscale opacity-40">📦</div>
+                                                  )}
+                                              </div>
+                                              <div className="flex flex-col items-center justify-center py-1.5 flex-1">
+                                                  <span className="text-[9px] font-bold text-gray-500 leading-none mb-0.5">{shortMonth}</span>
+                                                  <span className="text-base font-black text-white leading-none">{day}</span>
+                                              </div>
                                           </div>
                                           <div className="p-3 flex-1 min-w-0 flex flex-col justify-center">
                                               <div className="flex justify-between items-start mb-0.5">

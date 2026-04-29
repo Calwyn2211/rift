@@ -160,8 +160,33 @@ function getTimestamp(dateStr) {
             const hasPreorderBadge = Array.from(card.querySelectorAll('span'))
                 .some(s => (s.innerText || '').trim().toLowerCase() === 'pre-order');
 
+            // Pull the product image. Shopify uses srcset for responsive sizes,
+            // so prefer currentSrc (actually-loaded), then src, then the widest
+            // entry in srcset. Skip 1x1 tracking pixels and data: URLs.
+            let image = null;
+            const img = card.querySelector('img[alt]');
+            if (img) {
+                const candidates = [];
+                if (img.currentSrc) candidates.push(img.currentSrc);
+                if (img.src) candidates.push(img.src);
+                const ss = img.getAttribute('srcset') || img.srcset;
+                if (ss) {
+                    const widest = ss.split(',').map(s => s.trim()).reduce((best, part) => {
+                        const [u, w] = part.split(/\s+/);
+                        const wn = parseInt((w || '0').replace(/[^\d]/g, ''), 10) || 0;
+                        return wn >= best.w ? { u, w: wn } : best;
+                    }, { u: null, w: 0 });
+                    if (widest.u) candidates.push(widest.u);
+                }
+                for (const c of candidates) {
+                    if (!c || c.startsWith('data:')) continue;
+                    image = c.startsWith('//') ? 'https:' + c : c;
+                    break;
+                }
+            }
+
             seenNames.add(text);
-            out.push({ href, name: text, date, hasPreorderBadge });
+            out.push({ href, name: text, date, hasPreorderBadge, image });
         }
 
         return out;
@@ -195,6 +220,7 @@ function getTimestamp(dateStr) {
                 name: card.name,
                 type,
                 price,
+                image: card.image || null,
                 timestamp: getTimestamp(card.date),
             });
             continue;
@@ -271,6 +297,7 @@ function getTimestamp(dateStr) {
             name: card.name,
             type,
             price,
+            image: card.image || null,
             timestamp: getTimestamp(card.date),
         });
 
