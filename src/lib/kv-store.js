@@ -53,7 +53,7 @@ export async function getState() {
 
 export async function patchState(patch) {
     const current = (await getJson(STATE_KEY)) || {};
-    const next = { ...DEFAULT_STATE, ...current, ...patch };
+    const next = { ...DEFAULT_STATE, ...current, ...patch, _lastWriteAt: new Date().toISOString() };
     await setJson(STATE_KEY, next);
     return next;
 }

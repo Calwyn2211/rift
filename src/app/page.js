@@ -67,6 +67,26 @@ const formatMoney = (amount, currency = 'USD', exchangeRate = 1) => {
 };
 
 // --- HELPERS ---
+const timeAgo = (iso) => {
+    if (!iso) return null;
+    const ms = Date.now() - new Date(iso).getTime();
+    if (isNaN(ms) || ms < 0) return null;
+    const m = Math.floor(ms / 60000);
+    if (m < 1) return 'just now';
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 48) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+};
+
+const ageDot = (iso) => {
+    if (!iso) return 'bg-gray-500';
+    const h = (Date.now() - new Date(iso).getTime()) / 3600000;
+    if (h < 24) return 'bg-emerald-500';
+    if (h < 72) return 'bg-yellow-500';
+    return 'bg-red-500';
+};
+
 const groupReleasesByWeek = (releases) => {
     if (!releases) return {};
     const sortedReleases = [...releases].sort((a, b) => (a.timestamp || 9999999999999) - (b.timestamp || 9999999999999));
@@ -116,6 +136,8 @@ export default function App() {
   const [data, setData] = useState(null);
   const [calendarData, setCalendarData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [health, setHealth] = useState(null);
+  const [healthOpen, setHealthOpen] = useState(false);
   
   // --- CURRENCY & BANK STATE ---
   const [currency, setCurrency] = useState('USD');
@@ -219,6 +241,7 @@ export default function App() {
       setData(ordersData);
       const calJson = await calPromise;
       setCalendarData(calJson.releases || []);
+      fetch('/api/health').then(r => r.ok ? r.json() : null).then(h => { if (h) setHealth(h); }).catch(() => {});
     } catch (e) { console.error(e); }
     setLoading(false);
   };
@@ -795,7 +818,37 @@ export default function App() {
       <div className="sticky top-0 z-40 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-white/10 p-4">
         <div className="max-w-md md:max-w-3xl lg:max-w-5xl xl:max-w-7xl mx-auto flex justify-between items-center">
           <h1 className="text-xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-600">RIFT</h1>
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2">
+              {(() => {
+                  const stamps = [health?.ordersCachedAt, health?.calendarFileMtime, health?.stateLastWriteAt].filter(Boolean);
+                  const oldest = stamps.length ? stamps.reduce((acc, t) => new Date(t).getTime() < new Date(acc).getTime() ? t : acc) : null;
+                  return (
+                      <div className="relative">
+                          <button onClick={() => setHealthOpen(o => !o)} title="Data freshness" className="bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-bold px-2.5 py-1.5 rounded-full transition-colors flex items-center space-x-1.5 text-gray-400">
+                              <span className={`w-2 h-2 rounded-full ${ageDot(oldest)}`}></span>
+                              <span>{timeAgo(oldest) || '—'}</span>
+                          </button>
+                          {healthOpen && (
+                              <div className="absolute right-0 mt-2 w-60 bg-[#151515] border border-white/10 rounded-xl p-3 shadow-2xl z-[60]">
+                                  <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2">Data Freshness</div>
+                                  {[
+                                      { label: 'Orders cache', iso: health?.ordersCachedAt },
+                                      { label: 'Calendar file', iso: health?.calendarFileMtime },
+                                      { label: 'State last write', iso: health?.stateLastWriteAt },
+                                  ].map(({ label, iso }) => (
+                                      <div key={label} className="flex items-center justify-between py-1 text-[10px]">
+                                          <div className="flex items-center space-x-2">
+                                              <span className={`w-1.5 h-1.5 rounded-full ${ageDot(iso)}`}></span>
+                                              <span className="text-gray-400">{label}</span>
+                                          </div>
+                                          <span className="font-mono text-gray-300">{timeAgo(iso) || 'never'}</span>
+                                      </div>
+                                  ))}
+                              </div>
+                          )}
+                      </div>
+                  );
+              })()}
               <button onClick={toggleCurrency} className="bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-black px-3 py-1.5 rounded-full transition-colors flex items-center space-x-1">
                   <span>{currency === 'USD' ? 'USD' : 'ZAR'}</span>
               </button>
