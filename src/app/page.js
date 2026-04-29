@@ -482,7 +482,7 @@ export default function App() {
       
       return (
           <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center bg-black/90 backdrop-blur-md p-4 transition-all">
-              <div className="bg-[#101010] w-full max-w-sm rounded-3xl border border-white/10 overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-200">
+              <div className="bg-[#101010] w-full max-w-sm md:max-w-md lg:max-w-lg rounded-3xl border border-white/10 overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-200">
                   <div className="p-5 border-b border-white/5 flex justify-between items-center bg-[#151515]">
                       <div className="flex items-center space-x-2 text-emerald-400">
                           <SellIcon />
@@ -526,7 +526,7 @@ export default function App() {
     if (!trackingModal) return null;
     return (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/90 backdrop-blur-md p-4 transition-all">
-            <div className="bg-[#101010] w-full max-w-sm rounded-3xl border border-white/10 overflow-hidden shadow-2xl">
+            <div className="bg-[#101010] w-full max-w-sm md:max-w-md lg:max-w-lg rounded-3xl border border-white/10 overflow-hidden shadow-2xl">
                 <div className="p-5 border-b border-white/5 flex justify-between items-center bg-[#151515]"><h2 className="text-sm font-black text-white uppercase tracking-widest">Shipment Status</h2><button onClick={() => setTrackingModal(null)} className="text-gray-500 hover:text-white text-xs font-bold">CLOSE</button></div>
                 <div className="p-6 max-h-[60vh] overflow-y-auto">
                     {trackingModal.map((pkg, i) => {
@@ -596,7 +596,7 @@ export default function App() {
 
   const RiskModal = ({ title, type, items, Icon, onClose }) => (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md p-4 transition-all">
-        <div className="bg-[#101010] w-full max-w-sm rounded-3xl border border-white/10 overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-200">
+        <div className="bg-[#101010] w-full max-w-sm md:max-w-md lg:max-w-lg rounded-3xl border border-white/10 overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-200">
             <div className="p-5 border-b border-white/5 flex justify-between items-center bg-[#151515]"><div className="flex items-center space-x-3"><Icon className={`w-5 h-5 ${type === 'card' ? 'text-yellow-500' : 'text-blue-500'}`} /><h2 className="text-sm font-black text-white uppercase tracking-widest">{title}</h2></div><button onClick={onClose} className="text-gray-500 hover:text-white text-xs font-bold">CLOSE</button></div>
             <div className="p-4 max-h-[60vh] overflow-y-auto space-y-2">
                 {items?.length === 0 && <div className="text-center py-8"><p className="text-gray-600 text-xs">No data collected yet.</p></div>}
@@ -640,13 +640,13 @@ export default function App() {
         <SellModal />
         
         <div className="sticky top-0 z-40 bg-[#0a0a0a]/90 backdrop-blur-md border-b border-white/10 p-4">
-            <div className="max-w-md mx-auto flex items-center justify-between">
+            <div className="max-w-md md:max-w-3xl lg:max-w-5xl xl:max-w-7xl mx-auto flex items-center justify-between">
                 <button onClick={() => setSelectedDrop(null)} className="text-gray-400 text-xs font-bold uppercase hover:text-white flex items-center bg-white/5 px-3 py-1.5 rounded-full transition-colors">← Back</button>
                 <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Order Details</span>
             </div>
         </div>
 
-        <div className="max-w-md mx-auto p-4 pb-24">
+        <div className="max-w-md md:max-w-3xl lg:max-w-5xl xl:max-w-7xl mx-auto p-4 md:p-6 pb-24">
           <div className="flex flex-col items-center mb-6 mt-2">
               <div className="w-28 h-28 bg-gray-800 rounded-3xl overflow-hidden border border-white/10 shadow-2xl mb-4 relative">
                   {selectedDrop.image ? <img src={selectedDrop.image} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-3xl">📦</div>}
@@ -793,7 +793,7 @@ export default function App() {
       {showAddresses && <RiskModal title="Address Risk Profile" type="address" items={data?.addresses} Icon={HomeIcon} onClose={() => setShowAddresses(false)} />}
       
       <div className="sticky top-0 z-40 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-white/10 p-4">
-        <div className="max-w-md mx-auto flex justify-between items-center">
+        <div className="max-w-md md:max-w-3xl lg:max-w-5xl xl:max-w-7xl mx-auto flex justify-between items-center">
           <h1 className="text-xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-600">RIFT</h1>
           <div className="flex items-center space-x-3">
               <button onClick={toggleCurrency} className="bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-black px-3 py-1.5 rounded-full transition-colors flex items-center space-x-1">
@@ -806,7 +806,7 @@ export default function App() {
         </div>
       </div>
 
-      <div className="max-w-md mx-auto p-4">
+      <div className="max-w-md md:max-w-3xl lg:max-w-5xl xl:max-w-7xl mx-auto p-4 md:p-6">
         {loading ? (
           <DashboardSkeleton />
         ) : (
@@ -845,8 +845,8 @@ export default function App() {
                   <input type="text" placeholder="Search drops..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-[#151515] text-sm text-white border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:border-yellow-500/50 transition-colors" />
                 </div>
 
-                <div className="space-y-4">
-                  {filteredDrops.length === 0 && <div className="text-center text-gray-600 text-xs py-10">No drops found.</div>}
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {filteredDrops.length === 0 && <div className="text-center text-gray-600 text-xs py-10 md:col-span-2 xl:col-span-3">No drops found.</div>}
                   {filteredDrops.map((drop, i) => {
                     const soldData = soldAssets[drop.name] || { qty: 0 };
                     const activeQty = drop.totalItems - soldData.qty;
@@ -1248,7 +1248,7 @@ export default function App() {
                           <h3 className="text-[10px] font-black text-blue-400 bg-blue-900/10 border border-blue-500/20 px-3 py-1.5 rounded-lg uppercase tracking-widest mb-3 sticky top-0 z-10 w-fit backdrop-blur-md shadow-sm">
                               {weekGroup}
                           </h3>
-                          <div className="space-y-3">
+                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                               {groupReleasesByWeek(calendarData)[weekGroup].map((drop, dropIdx) => {
                                   let day = "TBA"; let shortMonth = "SOON";
                                   const ts = drop.timestamp || 9999999999999;
