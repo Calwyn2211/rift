@@ -1264,10 +1264,10 @@ export default function App() {
 
                                   return (
                                       <div key={dropIdx} className="w-full text-left flex bg-[#151515] border border-white/5 rounded-xl overflow-hidden shadow-sm">
-                                          <div className="w-20 bg-black/40 border-r border-white/5 flex flex-col shrink-0">
-                                              <div className="w-full aspect-square bg-gray-800 overflow-hidden relative">
+                                          <div className="w-28 bg-black/40 border-r border-white/5 flex flex-col shrink-0">
+                                              <div className="w-full aspect-square overflow-hidden relative flex items-center justify-center p-1">
                                                   {drop.image ? (
-                                                      <img src={drop.image} alt={drop.name} className="w-full h-full object-cover" loading="lazy" />
+                                                      <img src={drop.image} alt={drop.name} className="w-full h-full object-contain" loading="lazy" />
                                                   ) : (
                                                       <div className="w-full h-full flex items-center justify-center text-2xl grayscale opacity-40">📦</div>
                                                   )}
