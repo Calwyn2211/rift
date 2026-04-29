@@ -787,7 +787,7 @@ export default function App() {
 
   // --- MAIN LAYOUT RENDER (Tabs) ---
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white font-sans pb-24 relative">
+    <div className="min-h-screen bg-[#0a0a0a] text-white font-sans pb-24 relative lg:pb-6 lg:pl-28">
       <SellModal />
       {showCards && <RiskModal title="Card Risk Profile" type="card" items={data?.cards} Icon={CardIcon} onClose={() => setShowCards(false)} />}
       {showAddresses && <RiskModal title="Address Risk Profile" type="address" items={data?.addresses} Icon={HomeIcon} onClose={() => setShowAddresses(false)} />}
@@ -991,11 +991,11 @@ export default function App() {
                   <h2 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Active Inventory Breakdown</h2>
                   <p className="text-xs text-gray-500 mb-4">Swipe left on an asset to mark it as sold and realize profits.</p>
                   
-                  <div className="space-y-3 mb-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
                       {data?.drops?.map((drop, i) => {
                           const soldData = soldAssets[drop.name] || { qty: 0 };
                           const activeQty = drop.totalItems - soldData.qty;
-                          if (activeQty <= 0) return null; 
+                          if (activeQty <= 0) return null;
 
                           const unitCost = drop.totalItems > 0 ? drop.totalSpend / drop.totalItems : 0;
                           const mktVal = marketValues.hasOwnProperty(drop.name) ? marketValues[drop.name] : unitCost;
@@ -1299,9 +1299,9 @@ export default function App() {
         )}
       </div>
 
-      {/* --- BOTTOM NAVIGATION BAR --- */}
-      <div className="fixed bottom-4 left-4 right-4 z-50">
-          <div className="max-w-md mx-auto bg-[#1a1a1a]/95 backdrop-blur-xl border border-white/10 rounded-2xl px-6 py-3 flex justify-between items-center shadow-[0_10px_40px_rgba(0,0,0,0.5)]">
+      {/* --- BOTTOM NAVIGATION BAR (mobile) / LEFT SIDEBAR (lg+) --- */}
+      <div className="fixed bottom-4 left-4 right-4 z-50 lg:right-auto lg:top-4 lg:bottom-4">
+          <div className="max-w-md mx-auto bg-[#1a1a1a]/95 backdrop-blur-xl border border-white/10 rounded-2xl px-6 py-3 flex justify-between items-center shadow-[0_10px_40px_rgba(0,0,0,0.5)] lg:h-full lg:max-w-none lg:mx-0 lg:w-20 lg:flex-col lg:justify-start lg:gap-8 lg:px-3 lg:py-6">
               <button onClick={() => { setActiveTab('home'); setSelectedDrop(null); }} className={`flex flex-col items-center transition-colors w-12 ${activeTab === 'home' && !selectedDrop ? 'text-yellow-500' : 'text-gray-500 hover:text-gray-300'}`}>
                   <HomeIcon className="w-6 h-6 mb-1" />
                   <span className="text-[8px] font-black uppercase tracking-widest">Home</span>
