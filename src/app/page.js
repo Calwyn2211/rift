@@ -87,6 +87,15 @@ const ageDot = (iso) => {
     return 'bg-red-500';
 };
 
+const urlBase64ToUint8Array = (base64String) => {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const raw = atob(base64);
+    const out = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+};
+
 const groupReleasesByWeek = (releases) => {
     if (!releases) return {};
     const sortedReleases = [...releases].sort((a, b) => (a.timestamp || 9999999999999) - (b.timestamp || 9999999999999));
@@ -138,6 +147,9 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [health, setHealth] = useState(null);
   const [healthOpen, setHealthOpen] = useState(false);
+  const [pushPermission, setPushPermission] = useState('default');
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
   
   // --- CURRENCY & BANK STATE ---
   const [currency, setCurrency] = useState('USD');
@@ -245,6 +257,49 @@ export default function App() {
     } catch (e) { console.error(e); }
     setLoading(false);
   };
+
+  const enablePush = async () => {
+    if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator)) return;
+    const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    if (!vapid) { console.warn('VAPID public key missing'); return; }
+    setPushBusy(true);
+    try {
+      let perm = Notification.permission;
+      if (perm === 'default') {
+        perm = await Notification.requestPermission();
+        setPushPermission(perm);
+      }
+      if (perm !== 'granted') return;
+      const reg = await navigator.serviceWorker.ready;
+      const existing = await reg.pushManager.getSubscription();
+      const sub = existing || await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapid),
+      });
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sub.toJSON()),
+      });
+      setPushSubscribed(true);
+      setPushPermission('granted');
+    } catch (e) {
+      console.error('Enable push failed:', e);
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    setPushPermission(Notification.permission);
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready
+            .then((reg) => reg.pushManager.getSubscription())
+            .then((sub) => setPushSubscribed(!!sub))
+            .catch(() => {});
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -829,7 +884,7 @@ export default function App() {
                               <span>{timeAgo(oldest) || '—'}</span>
                           </button>
                           {healthOpen && (
-                              <div className="absolute right-0 mt-2 w-60 bg-[#151515] border border-white/10 rounded-xl p-3 shadow-2xl z-[60]">
+                              <div className="absolute right-0 mt-2 w-64 bg-[#151515] border border-white/10 rounded-xl p-3 shadow-2xl z-[60]">
                                   <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2">Data Freshness</div>
                                   {[
                                       { label: 'Orders cache', iso: health?.ordersCachedAt },
@@ -844,6 +899,23 @@ export default function App() {
                                           <span className="font-mono text-gray-300">{timeAgo(iso) || 'never'}</span>
                                       </div>
                                   ))}
+                                  <div className="mt-3 pt-3 border-t border-white/5">
+                                      <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2">Notifications</div>
+                                      {pushPermission === 'denied' && (
+                                          <p className="text-[10px] text-red-400">Blocked. Enable in iOS Settings → Notifications → RIFT.</p>
+                                      )}
+                                      {pushPermission !== 'denied' && pushSubscribed && (
+                                          <div className="flex items-center space-x-2 text-[10px] text-emerald-400">
+                                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                              <span>Enabled — daily 4pm SAST</span>
+                                          </div>
+                                      )}
+                                      {pushPermission !== 'denied' && !pushSubscribed && (
+                                          <button onClick={enablePush} disabled={pushBusy} className={`w-full text-[10px] font-bold py-2 px-3 rounded-lg border transition-colors ${pushBusy ? 'bg-gray-800 text-gray-500 border-gray-700' : 'bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border-yellow-500/30'}`}>
+                                              {pushBusy ? 'ENABLING...' : 'ENABLE PUSH NOTIFICATIONS'}
+                                          </button>
+                                      )}
+                                  </div>
                               </div>
                           )}
                       </div>

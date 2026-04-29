@@ -2,6 +2,7 @@ import Redis from 'ioredis';
 
 const STATE_KEY = 'rift:state:v1';
 const ORDERS_KEY = 'rift:orders:v1';
+const PUSH_KEY = 'rift:push:subs';
 
 const DEFAULT_STATE = {
     marketValues: {},
@@ -64,4 +65,23 @@ export async function getOrdersCache() {
 
 export async function saveOrdersCache(payload) {
     await setJson(ORDERS_KEY, { ...payload, cachedAt: new Date().toISOString() });
+}
+
+export async function getPushSubscriptions() {
+    return (await getJson(PUSH_KEY)) || [];
+}
+
+export async function addPushSubscription(sub) {
+    if (!sub?.endpoint) return false;
+    const subs = await getPushSubscriptions();
+    if (subs.find((s) => s.endpoint === sub.endpoint)) return false;
+    subs.push(sub);
+    await setJson(PUSH_KEY, subs);
+    return true;
+}
+
+export async function removePushSubscription(endpoint) {
+    const subs = await getPushSubscriptions();
+    const next = subs.filter((s) => s.endpoint !== endpoint);
+    await setJson(PUSH_KEY, next);
 }
