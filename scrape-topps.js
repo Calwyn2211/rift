@@ -2,7 +2,15 @@ const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
 const fs = require('fs');
+const path = require('path');
+const os = require('os');
 const { exec } = require('child_process');
+
+// Real Chrome + persistent profile dir = CF clearance cookies survive between runs.
+// Using a dedicated dir (not the main Chrome profile) avoids the "Chrome is already
+// running" lock when your daily browser is open.
+const CHROME_PATH = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const PROFILE_DIR = path.join(os.homedir(), '.topps-scraper-profile');
 
 // Wraps page.evaluate so it retries when Cloudflare/SPA navigations destroy
 // the execution context mid-call.
@@ -41,10 +49,23 @@ function getTimestamp(dateStr) {
 }
 
 (async () => {
-    console.log("🚀 Launching stealth browser...");
-    const browser = await puppeteer.launch({ headless: false, args: ['--start-maximized'] });
-    const mainPage = await browser.newPage();
-    await mainPage.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    console.log("🚀 Launching real Chrome with persistent profile at", PROFILE_DIR);
+    const browser = await puppeteer.launch({
+        headless: false,
+        executablePath: CHROME_PATH,
+        userDataDir: PROFILE_DIR,
+        args: [
+            '--start-maximized',
+            '--disable-blink-features=AutomationControlled',
+            '--disable-features=IsolateOrigins,site-per-process',
+            '--no-default-browser-check',
+            '--no-first-run',
+        ],
+        ignoreDefaultArgs: ['--enable-automation'],
+    });
+    // Reuse the about:blank tab Chrome opens with so we don't end up with two windows.
+    const pages = await browser.pages();
+    const mainPage = pages[0] || await browser.newPage();
 
     console.log("🌐 Navigating to Topps Release Calendar...");
     await mainPage.goto('https://www.topps.com/release-calendar', { waitUntil: 'domcontentloaded', timeout: 60000 });
