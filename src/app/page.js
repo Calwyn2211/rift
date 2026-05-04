@@ -872,7 +872,7 @@ export default function App() {
       
       <div className="sticky top-0 z-40 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-white/10 p-4">
         <div className="max-w-md md:max-w-3xl lg:max-w-5xl xl:max-w-7xl mx-auto flex justify-between items-center">
-          <h1 className="text-xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-600">RIFT</h1>
+          <h1 className="text-xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-600 pr-1">RIFT</h1>
           <div className="flex items-center space-x-2">
               {(() => {
                   const stamps = [health?.ordersCachedAt, health?.calendarFileMtime, health?.stateLastWriteAt].filter(Boolean);
