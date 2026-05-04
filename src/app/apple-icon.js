@@ -3,7 +3,14 @@ import { ImageResponse } from 'next/og';
 export const size = { width: 180, height: 180 };
 export const contentType = 'image/png';
 
-export default function AppleIcon() {
+const FONT_URL = 'https://cdn.jsdelivr.net/npm/@fontsource/inter@5.1.0/files/inter-latin-900-italic.woff';
+
+export default async function AppleIcon() {
+    const fontData = await fetch(FONT_URL).then(res => {
+        if (!res.ok) throw new Error(`Font fetch failed: ${res.status}`);
+        return res.arrayBuffer();
+    });
+
     return new ImageResponse(
         (
             <div style={{
@@ -13,12 +20,13 @@ export default function AppleIcon() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                fontFamily: 'Inter',
             }}>
                 <div style={{
                     fontSize: 64,
                     fontWeight: 900,
                     fontStyle: 'italic',
-                    letterSpacing: '-0.04em',
+                    letterSpacing: '-0.05em',
                     backgroundImage: 'linear-gradient(to right, #facc15, #ca8a04)',
                     backgroundClip: 'text',
                     color: 'transparent',
@@ -26,6 +34,11 @@ export default function AppleIcon() {
                 }}>RIFT</div>
             </div>
         ),
-        size
+        {
+            ...size,
+            fonts: [
+                { name: 'Inter', data: fontData, style: 'italic', weight: 900 },
+            ],
+        }
     );
 }
