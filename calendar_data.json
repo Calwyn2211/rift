@@ -1,69 +1,6 @@
 [
   {
-    "id": "topps-0-2025-star-wars-masterwork",
-    "date": "May 4",
-    "name": "2025 Star Wars Masterwork",
-    "type": "EQL DRAW",
-    "price": "TBD",
-    "image": "https://images.topps.com/v3/assets/bltc7206971cb4b2bfc/blt39e8f8f6d0536101/69f0fba5e2f6c62a8dc79b73/2025_Star_Wars_Masterworks-Trending_Now.png",
-    "timestamp": 1777845600000
-  },
-  {
-    "id": "topps-1-2025-topps-chrome--platinum-baseball",
-    "date": "May 5",
-    "name": "2025 Topps Chrome® Platinum Baseball",
-    "type": "PRE-ORDER",
-    "price": "TBD",
-    "image": "https://images.topps.com/v3/assets/bltc7206971cb4b2bfc/blt497643f1c581603c/69e7b76e21328c4146c883fd/2025_Topps_Chrome_Platinum_Baseball_-_Trending_Now.png",
-    "timestamp": 1777932000000
-  },
-  {
-    "id": "topps-2-2025-topps-signature-class-football",
-    "date": "May 5",
-    "name": "2025 Topps Signature Class Football",
-    "type": "PRE-ORDER",
-    "price": "TBD",
-    "image": "https://images.topps.com/v3/assets/bltc7206971cb4b2bfc/blt14d6db55d778003d/69efb2f00050b6970ea38b11/2026_Topps_Signature_Class_Football-Trending_Now.png",
-    "timestamp": 1777932000000
-  },
-  {
-    "id": "topps-3-2025-topps-30-years-of-toy-story",
-    "date": "May 6",
-    "name": "2025 Topps 30 Years of Toy Story",
-    "type": "EQL DRAW",
-    "price": "TBD",
-    "image": "https://images.topps.com/v3/assets/bltc7206971cb4b2bfc/blt02f6b6a36b2b97b8/69ceae41048bd1b2031672f7/2025_Topps_30_Years_of_Toy_Story-Trending_Now.png",
-    "timestamp": 1778018400000
-  },
-  {
-    "id": "topps-4-2025-26-bowman-basketball",
-    "date": "May 7",
-    "name": "2025-26 Bowman Basketball",
-    "type": "MAIN RELEASE",
-    "price": "TBD",
-    "image": "https://images.topps.com/v3/assets/bltc7206971cb4b2bfc/blta0f14923082cd294/69bd710bd22cf2bdb1614869/NBA_Basketball-Trending_Now_(1).png",
-    "timestamp": 1778104800000
-  },
-  {
-    "id": "topps-5-topps-chrome--uefa-club-competitions-202",
-    "date": "May 7",
-    "name": "Topps Chrome® UEFA Club Competitions 2025-26",
-    "type": "MAIN RELEASE",
-    "price": "TBD",
-    "image": "https://images.topps.com/v3/assets/bltc7206971cb4b2bfc/blt507004df824d95bd/69ce379cb1e57ab1480512d4/UCC_CHROME_TRENDING_BANNER.png",
-    "timestamp": 1778104800000
-  },
-  {
-    "id": "topps-6-2026-topps-chrome--wwe-sapphire",
-    "date": "May 8",
-    "name": "2026 Topps Chrome® WWE Sapphire",
-    "type": "EQL DRAW",
-    "price": "TBD",
-    "image": "https://images.topps.com/v3/assets/bltc7206971cb4b2bfc/bltfcf6cf4c3b6e2fea/69f5244ac7c3ba4e2ed06a07/2026_WWE_Chrome_Sapphire-Trending_Now.png",
-    "timestamp": 1778191200000
-  },
-  {
-    "id": "topps-7-2026-topps-chrome--ufc",
+    "id": "topps-0-2026-topps-chrome--ufc",
     "date": "May 8",
     "name": "2026 Topps Chrome® UFC",
     "type": "MAIN RELEASE",
@@ -72,34 +9,16 @@
     "timestamp": 1778191200000
   },
   {
-    "id": "topps-8-2026-topps-series-2-baseball",
+    "id": "topps-1-2026-topps-series-2-baseball",
     "date": "May 11",
     "name": "2026 Topps Series 2 Baseball",
     "type": "PRE-ORDER",
     "price": "TBD",
-    "image": "https://images.topps.com/v3/assets/bltc7206971cb4b2bfc/bltb81a6b11418d3a05/69e7874f1e3868c136a58fff/Dropping_Soon_Option_V1.png",
+    "image": "https://images.topps.com/v3/assets/bltc7206971cb4b2bfc/blt84128a3e02a15d54/69fa5b292861547df5cc5c52/2026_Topps_Series_2_Baseball-Trending_Now.png",
     "timestamp": 1778450400000
   },
   {
-    "id": "topps-9-2025-topps-dynasty-baseball",
-    "date": "May 11",
-    "name": "2025 Topps Dynasty Baseball",
-    "type": "PRE-ORDER",
-    "price": "TBD",
-    "image": "https://images.topps.com/v3/assets/bltc7206971cb4b2bfc/bltb81a6b11418d3a05/69e7874f1e3868c136a58fff/Dropping_Soon_Option_V1.png",
-    "timestamp": 1778450400000
-  },
-  {
-    "id": "topps-10-2026-topps-knockout-ufc",
-    "date": "May 11",
-    "name": "2026 Topps Knockout UFC",
-    "type": "PRE-ORDER",
-    "price": "TBD",
-    "image": "https://images.topps.com/v3/assets/bltc7206971cb4b2bfc/bltb81a6b11418d3a05/69e7874f1e3868c136a58fff/Dropping_Soon_Option_V1.png",
-    "timestamp": 1778450400000
-  },
-  {
-    "id": "topps-11-2026-topps-chrome--veefriends",
+    "id": "topps-2-2026-topps-chrome--veefriends",
     "date": "May 12",
     "name": "2026 Topps Chrome® VeeFriends",
     "type": "PRE-ORDER",
@@ -108,7 +27,7 @@
     "timestamp": 1778536800000
   },
   {
-    "id": "topps-12-2026-bowman-baseball",
+    "id": "topps-3-2026-bowman-baseball",
     "date": "May 13",
     "name": "2026 Bowman Baseball",
     "type": "MAIN RELEASE",
@@ -117,7 +36,7 @@
     "timestamp": 1778623200000
   },
   {
-    "id": "topps-13-2025-26-topps-hoops-basketball",
+    "id": "topps-4-2025-26-topps-hoops-basketball",
     "date": "May 14",
     "name": "2025–26 Topps Hoops Basketball",
     "type": "MAIN RELEASE",
@@ -126,16 +45,7 @@
     "timestamp": 1778709600000
   },
   {
-    "id": "topps-14-2025-topps-finest-football",
-    "date": "May 15",
-    "name": "2025 Topps Finest Football",
-    "type": "MAIN RELEASE",
-    "price": "TBD",
-    "image": "https://images.topps.com/v3/assets/bltc7206971cb4b2bfc/blt4eb6dfd771547ef8/69d69c922256b23db41d9e92/2025_Finest_Football-Trending_Now.png",
-    "timestamp": 1778796000000
-  },
-  {
-    "id": "topps-15-2025-26-bowman-university-best-basketbal",
+    "id": "topps-5-2025-26-bowman-university-best-basketbal",
     "date": "May 15",
     "name": "2025-26 Bowman University Best Basketball",
     "type": "MAIN RELEASE",
@@ -144,21 +54,102 @@
     "timestamp": 1778796000000
   },
   {
-    "id": "topps-16-topps-inception-baseball",
+    "id": "topps-6-2025-topps-finest-football",
+    "date": "May 15",
+    "name": "2025 Topps Finest Football",
+    "type": "EQL DRAW",
+    "price": "TBD",
+    "image": "https://images.topps.com/v3/assets/bltc7206971cb4b2bfc/blt4eb6dfd771547ef8/69d69c922256b23db41d9e92/2025_Finest_Football-Trending_Now.png",
+    "timestamp": 1778796000000
+  },
+  {
+    "id": "topps-7-2025-topps-dynasty-baseball",
     "date": "May 18",
-    "name": "Topps Inception Baseball",
+    "name": "2025 Topps Dynasty Baseball",
+    "type": "EQL DRAW",
+    "price": "TBD",
+    "image": "https://images.topps.com/v3/assets/bltc7206971cb4b2bfc/blt59f4789694f3ded5/69f901bf7e92541605e93a71/22025_Topps_Dynasty_Baseball_-_Trending_Now.png",
+    "timestamp": 1779055200000
+  },
+  {
+    "id": "topps-8-2025-topps-cosmic-chrome--football",
+    "date": "May 18",
+    "name": "2025 Topps Cosmic Chrome® Football",
+    "type": "PRE-ORDER",
+    "price": "TBD",
+    "image": "https://images.topps.com/v3/assets/bltc7206971cb4b2bfc/bltd9499cfe5aa5ac41/69fa4a2a2cb11f3a3079002b/2025_Topps_Cosmic_Chrome_Football-Trending_Now.png",
+    "timestamp": 1779055200000
+  },
+  {
+    "id": "topps-9-2025-topps-inception-baseball",
+    "date": "May 18",
+    "name": "2025 Topps Inception Baseball",
     "type": "PRE-ORDER",
     "price": "TBD",
     "image": "https://images.topps.com/v3/assets/bltc7206971cb4b2bfc/bltb81a6b11418d3a05/69e7874f1e3868c136a58fff/Dropping_Soon_Option_V1.png",
     "timestamp": 1779055200000
   },
   {
-    "id": "topps-17-2025-topps-cosmic-chrome--football",
-    "date": "May 18",
-    "name": "2025 Topps Cosmic Chrome® Football",
+    "id": "topps-10-2025-26-topps-chrome--cactus-jack-basket",
+    "date": "May 19",
+    "name": "2025-26 Topps Chrome® Cactus Jack Basketball",
     "type": "PRE-ORDER",
     "price": "TBD",
-    "image": "https://images.topps.com/v3/assets/bltc7206971cb4b2bfc/bltb81a6b11418d3a05/69e7874f1e3868c136a58fff/Dropping_Soon_Option_V1.png",
-    "timestamp": 1779055200000
+    "image": "https://images.topps.com/v3/assets/bltc7206971cb4b2bfc/blt8b9da4f066d31f39/69e775f421328ceebdc88216/Dropping_Soon_Logo_Option.png",
+    "timestamp": 1779141600000
+  },
+  {
+    "id": "topps-11-topps-chrome--disney",
+    "date": "May 19",
+    "name": "Topps Chrome® Disney",
+    "type": "PRE-ORDER",
+    "price": "TBD",
+    "image": "https://images.topps.com/v3/assets/bltc7206971cb4b2bfc/blt8b9da4f066d31f39/69e775f421328ceebdc88216/Dropping_Soon_Logo_Option.png",
+    "timestamp": 1779141600000
+  },
+  {
+    "id": "topps-12-2026-topps-midnight-ufc",
+    "date": "May 22",
+    "name": "2026 Topps Midnight UFC",
+    "type": "MAIN RELEASE",
+    "price": "TBD",
+    "image": "https://images.topps.com/v3/assets/bltc7206971cb4b2bfc/blt07bb70c3da41b466/69dd4bb32224b3573b81d572/2026_Topps_Midnight_UFC-Trending_Now.png",
+    "timestamp": 1779400800000
+  },
+  {
+    "id": "topps-13-2025-26-topps-signature-class-basketball",
+    "date": "Thursday, May 28",
+    "name": "2025-26 Topps Signature Class Basketball",
+    "type": "PRE-ORDER",
+    "price": "TBD",
+    "image": "https://images.topps.com/v3/assets/bltc7206971cb4b2bfc/blt2cf2e05dbcbf38a9/69e7897e735697c5eeb921e7/2025-26_Topps_Signature_Class_Basketball-Trending_Now.png",
+    "timestamp": 1779919200000
+  },
+  {
+    "id": "topps-14-2025-star-wars-masterwork",
+    "date": "June 3",
+    "name": "2025 Star Wars Masterwork",
+    "type": "MAIN RELEASE",
+    "price": "TBD",
+    "image": "https://images.topps.com/v3/assets/bltc7206971cb4b2bfc/blt39e8f8f6d0536101/69f0fba5e2f6c62a8dc79b73/2025_Star_Wars_Masterworks-Trending_Now.png",
+    "timestamp": 1780437600000
+  },
+  {
+    "id": "topps-15-2025-topps-chrome--platinum-baseball",
+    "date": "June 5",
+    "name": "2025 Topps Chrome® Platinum Baseball",
+    "type": "MAIN RELEASE",
+    "price": "TBD",
+    "image": "https://images.topps.com/v3/assets/bltc7206971cb4b2bfc/blt497643f1c581603c/69e7b76e21328c4146c883fd/2025_Topps_Chrome_Platinum_Baseball_-_Trending_Now.png",
+    "timestamp": 1780610400000
+  },
+  {
+    "id": "topps-16-2025-topps-signature-class-football",
+    "date": "June 5",
+    "name": "2025 Topps Signature Class Football",
+    "type": "MAIN RELEASE",
+    "price": "TBD",
+    "image": "https://images.topps.com/v3/assets/bltc7206971cb4b2bfc/blt14d6db55d778003d/69efb2f00050b6970ea38b11/2026_Topps_Signature_Class_Football-Trending_Now.png",
+    "timestamp": 1780610400000
   }
 ]
