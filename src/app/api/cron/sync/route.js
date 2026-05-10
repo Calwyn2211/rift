@@ -95,11 +95,17 @@ function computeWealthUSD(scanResult, state) {
 
 function buildDigest({ scanResult, state, calendar, fx, weekly }) {
     const today = new Date();
-    const todayKey = today.toISOString().split('T')[0];
+    // Scraper runs locally in SAST and parses dates like `new Date("May 11, 2026")`
+    // as midnight local time, which is 22:00 UTC the previous day. Compare in SAST
+    // so a "May 11" drop matches a SAST May 11 todayKey, not the UTC May 10 it would
+    // collapse to.
+    const SAST_OFFSET_MS = 2 * 60 * 60 * 1000;
+    const sastKey = (ms) => new Date(ms + SAST_OFFSET_MS).toISOString().split('T')[0];
+    const todayKey = sastKey(today.getTime());
 
     const todaysDrops = (calendar || []).filter((r) => {
         if (!r.timestamp) return false;
-        return new Date(r.timestamp).toISOString().split('T')[0] === todayKey;
+        return sastKey(r.timestamp) === todayKey;
     });
 
     const wealth = computeWealthUSD(scanResult, state);
@@ -134,7 +140,7 @@ function buildDigest({ scanResult, state, calendar, fx, weekly }) {
             return days >= 0 && days <= 7;
         });
         lines.push(`${ahead.length} drops in next 7 days`);
-        const weekAgo = new Date(today.getTime() - 7 * 86400000).toISOString().split('T')[0];
+        const weekAgo = sastKey(today.getTime() - 7 * 86400000);
         const wealthAgo = state.wealthHistory?.[weekAgo];
         if (typeof wealthAgo === 'number') {
             const delta = wealth - wealthAgo;
