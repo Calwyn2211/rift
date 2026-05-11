@@ -1,25 +1,7 @@
 [
   {
-    "id": "topps-0-2026-topps-chrome--ufc",
-    "date": "May 8",
-    "name": "2026 Topps Chrome® UFC",
-    "type": "MAIN RELEASE",
-    "price": "TBD",
-    "image": "https://images.topps.com/v3/assets/bltc7206971cb4b2bfc/blt3c2b06f4ae8eb24c/69cede242c747bef05576ac3/2026_Topps_Chrome_UFC-Trending_Now.png",
-    "timestamp": 1778191200000
-  },
-  {
-    "id": "topps-1-2026-topps-series-2-baseball",
-    "date": "May 11",
-    "name": "2026 Topps Series 2 Baseball",
-    "type": "PRE-ORDER",
-    "price": "TBD",
-    "image": "https://images.topps.com/v3/assets/bltc7206971cb4b2bfc/blt84128a3e02a15d54/69fa5b292861547df5cc5c52/2026_Topps_Series_2_Baseball-Trending_Now.png",
-    "timestamp": 1778450400000
-  },
-  {
-    "id": "topps-2-2026-topps-chrome--veefriends",
-    "date": "May 12",
+    "id": "topps-0-2026-topps-chrome--veefriends",
+    "date": "Tuesday, May 12 at 6:00 PM GMT+2",
     "name": "2026 Topps Chrome® VeeFriends",
     "type": "PRE-ORDER",
     "price": "TBD",
@@ -27,8 +9,8 @@
     "timestamp": 1778536800000
   },
   {
-    "id": "topps-3-2026-bowman-baseball",
-    "date": "May 13",
+    "id": "topps-1-2026-bowman-baseball",
+    "date": "Wednesday, May 13",
     "name": "2026 Bowman Baseball",
     "type": "MAIN RELEASE",
     "price": "TBD",
@@ -36,8 +18,8 @@
     "timestamp": 1778623200000
   },
   {
-    "id": "topps-4-2025-26-topps-hoops-basketball",
-    "date": "May 14",
+    "id": "topps-2-2025-26-topps-hoops-basketball",
+    "date": "Thursday, May 14 at 6:00 PM GMT+2",
     "name": "2025–26 Topps Hoops Basketball",
     "type": "MAIN RELEASE",
     "price": "TBD",
@@ -45,8 +27,8 @@
     "timestamp": 1778709600000
   },
   {
-    "id": "topps-5-2025-26-bowman-university-best-basketbal",
-    "date": "May 15",
+    "id": "topps-3-2025-26-bowman-university-best-basketbal",
+    "date": "Friday, May 15",
     "name": "2025-26 Bowman University Best Basketball",
     "type": "MAIN RELEASE",
     "price": "TBD",
@@ -54,26 +36,26 @@
     "timestamp": 1778796000000
   },
   {
-    "id": "topps-6-2025-topps-finest-football",
-    "date": "May 15",
+    "id": "topps-4-2025-topps-finest-football",
+    "date": "Friday, May 15 at 6:00 PM GMT+2",
     "name": "2025 Topps Finest Football",
-    "type": "EQL DRAW",
+    "type": "MAIN RELEASE",
     "price": "TBD",
     "image": "https://images.topps.com/v3/assets/bltc7206971cb4b2bfc/blt4eb6dfd771547ef8/69d69c922256b23db41d9e92/2025_Finest_Football-Trending_Now.png",
     "timestamp": 1778796000000
   },
   {
-    "id": "topps-7-2025-topps-dynasty-baseball",
-    "date": "May 18",
+    "id": "topps-5-2025-topps-dynasty-baseball",
+    "date": "Monday, May 18",
     "name": "2025 Topps Dynasty Baseball",
-    "type": "EQL DRAW",
+    "type": "PRE-ORDER",
     "price": "TBD",
     "image": "https://images.topps.com/v3/assets/bltc7206971cb4b2bfc/blt59f4789694f3ded5/69f901bf7e92541605e93a71/22025_Topps_Dynasty_Baseball_-_Trending_Now.png",
     "timestamp": 1779055200000
   },
   {
-    "id": "topps-8-2025-topps-cosmic-chrome--football",
-    "date": "May 18",
+    "id": "topps-6-2025-topps-cosmic-chrome--football",
+    "date": "Monday, May 18",
     "name": "2025 Topps Cosmic Chrome® Football",
     "type": "PRE-ORDER",
     "price": "TBD",
@@ -81,8 +63,8 @@
     "timestamp": 1779055200000
   },
   {
-    "id": "topps-9-2025-topps-inception-baseball",
-    "date": "May 18",
+    "id": "topps-7-2025-topps-inception-baseball",
+    "date": "Monday, May 18",
     "name": "2025 Topps Inception Baseball",
     "type": "PRE-ORDER",
     "price": "TBD",
@@ -90,8 +72,8 @@
     "timestamp": 1779055200000
   },
   {
-    "id": "topps-10-2025-26-topps-chrome--cactus-jack-basket",
-    "date": "May 19",
+    "id": "topps-8-2025-26-topps-chrome--cactus-jack-basket",
+    "date": "Tuesday, May 19",
     "name": "2025-26 Topps Chrome® Cactus Jack Basketball",
     "type": "PRE-ORDER",
     "price": "TBD",
@@ -99,8 +81,8 @@
     "timestamp": 1779141600000
   },
   {
-    "id": "topps-11-topps-chrome--disney",
-    "date": "May 19",
+    "id": "topps-9-topps-chrome--disney",
+    "date": "Tuesday, May 19",
     "name": "Topps Chrome® Disney",
     "type": "PRE-ORDER",
     "price": "TBD",
@@ -108,8 +90,8 @@
     "timestamp": 1779141600000
   },
   {
-    "id": "topps-12-2026-topps-midnight-ufc",
-    "date": "May 22",
+    "id": "topps-10-2026-topps-midnight-ufc",
+    "date": "Friday, May 22",
     "name": "2026 Topps Midnight UFC",
     "type": "MAIN RELEASE",
     "price": "TBD",
@@ -117,7 +99,16 @@
     "timestamp": 1779400800000
   },
   {
-    "id": "topps-13-2025-26-topps-signature-class-basketball",
+    "id": "topps-11-2026-topps-knockout-ufc",
+    "date": "Monday, May 25",
+    "name": "2026 Topps Knockout UFC",
+    "type": "PRE-ORDER",
+    "price": "TBD",
+    "image": "https://images.topps.com/v3/assets/bltc7206971cb4b2bfc/blt31fae60c246a39ef/69f8cd6eeb66df84684b6c08/2026_UFC_Knockout-Trending_Now.png",
+    "timestamp": 1779660000000
+  },
+  {
+    "id": "topps-12-2025-26-topps-signature-class-basketball",
     "date": "Thursday, May 28",
     "name": "2025-26 Topps Signature Class Basketball",
     "type": "PRE-ORDER",
@@ -126,8 +117,8 @@
     "timestamp": 1779919200000
   },
   {
-    "id": "topps-14-2025-star-wars-masterwork",
-    "date": "June 3",
+    "id": "topps-13-2025-star-wars-masterwork",
+    "date": "Wednesday, Jun 3",
     "name": "2025 Star Wars Masterwork",
     "type": "MAIN RELEASE",
     "price": "TBD",
@@ -135,8 +126,8 @@
     "timestamp": 1780437600000
   },
   {
-    "id": "topps-15-2025-topps-chrome--platinum-baseball",
-    "date": "June 5",
+    "id": "topps-14-2025-topps-chrome--platinum-baseball",
+    "date": "Friday, Jun 5",
     "name": "2025 Topps Chrome® Platinum Baseball",
     "type": "MAIN RELEASE",
     "price": "TBD",
@@ -144,8 +135,8 @@
     "timestamp": 1780610400000
   },
   {
-    "id": "topps-16-2025-topps-signature-class-football",
-    "date": "June 5",
+    "id": "topps-15-2025-topps-signature-class-football",
+    "date": "Friday, Jun 5",
     "name": "2025 Topps Signature Class Football",
     "type": "MAIN RELEASE",
     "price": "TBD",
